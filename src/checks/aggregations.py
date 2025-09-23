@@ -1,16 +1,35 @@
-"""
-Aggregations check:
-- Supports methods: sum, count, avg, min, max, distinct_count
-- Each rule can target a specific column (or '*' for count)
-- Compare source vs target with absolute and/or percent tolerances
-- Example rule:
-    { method: "sum", column: "amount", tolerance_abs: 1.0, tolerance_pct: 0.1 }
-"""
+"""Aggregations check."""
 
-from typing import Any, Dict, List, Tuple
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+
 from src.checks.base import BaseCheck
-from src.runtime.results import CheckResult
+from src.compiler.schema import ColumnMapEntry
 from src.runtime.registry import register_check
+from src.runtime.results import CheckResult
+from src.utils.sql import wrap_order_by
+
+
+def _map_order_by(
+    columns: Optional[List[str]],
+    column_map: Optional[Dict[str, ColumnMapEntry]],
+    *,
+    side: str,
+) -> Optional[List[str]]:
+    if not columns:
+        return None
+    if not column_map:
+        return columns
+    mapped: List[str] = []
+    for canonical in columns:
+        entry = column_map.get(canonical)
+        if entry is None:
+            mapped.append(canonical)
+            continue
+        mapped.append(entry.source if side == "source" else entry.target)
+    return mapped
+
 
 @register_check("aggregations")
 class AggregationsCheck(BaseCheck):
@@ -27,12 +46,13 @@ class AggregationsCheck(BaseCheck):
             if not column:
                 raise ValueError("distinct_count requires 'column'")
             return f"COUNT(DISTINCT {column})", f"COUNT(DISTINCT {column})"
-        # sum/avg/min/max
         if not column:
             raise ValueError(f"{method} requires 'column'")
         return f"{m.upper()}({column})", f"{m.upper()}({column})"
 
-    def _compare(self, lhs: float, rhs: float, abs_tol: float | None, pct_tol: float | None) -> bool:
+    def _compare(
+        self, lhs: float, rhs: float, abs_tol: float | None, pct_tol: float | None
+    ) -> bool:
         diff = abs(lhs - rhs)
         if abs_tol is not None and diff <= abs_tol:
             return True
@@ -49,6 +69,16 @@ class AggregationsCheck(BaseCheck):
 
         s_sql_base = self.source.render_select_sql(self.table_cfg.source)
         t_sql_base = self.target.render_select_sql(self.table_cfg.target)
+
+        order_by_source = self.check_cfg.order_by_source or _map_order_by(
+            self.check_cfg.order_by, self.table_cfg.column_map, side="source"
+        )
+        order_by_target = self.check_cfg.order_by_target or _map_order_by(
+            self.check_cfg.order_by, self.table_cfg.column_map, side="target"
+        )
+
+        s_sql_base = wrap_order_by(s_sql_base, order_by_source)
+        t_sql_base = wrap_order_by(t_sql_base, order_by_target)
 
         results: List[Dict[str, Any]] = []
         all_pass = True
@@ -68,15 +98,17 @@ class AggregationsCheck(BaseCheck):
             t_val = float(self.target.fetch_scalar(t_sql) or 0.0)
 
             ok = self._compare(s_val, t_val, abs_tol, pct_tol)
-            results.append({
-                "method": method,
-                "column": column,
-                "source": s_val,
-                "target": t_val,
-                "tolerance_abs": abs_tol,
-                "tolerance_pct": pct_tol,
-                "pass": ok
-            })
+            results.append(
+                {
+                    "method": method,
+                    "column": column,
+                    "source": s_val,
+                    "target": t_val,
+                    "tolerance_abs": abs_tol,
+                    "tolerance_pct": pct_tol,
+                    "pass": ok,
+                }
+            )
             if not ok:
                 all_pass = False
 

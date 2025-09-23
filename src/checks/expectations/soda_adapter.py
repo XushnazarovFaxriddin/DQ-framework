@@ -42,22 +42,26 @@ Outcome
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from src.checks.base import BaseCheck
 from src.runtime.results import CheckResult
 from src.utils.logger import log
 from src.runtime.registry import register_check
 
+
 def _safe_import_soda():
     try:
         from soda.scan import Scan  # type: ignore
+
         return Scan
     except Exception as e:
         raise ImportError("soda-core is not installed or not importable") from e
 
 
 register_check("soda_checks")
+
+
 class SodaCheckAdapter(BaseCheck):
     def run(self) -> CheckResult:
         rule = (self.check_cfg.rules or [{}])[0]
@@ -168,13 +172,18 @@ class SodaCheckAdapter(BaseCheck):
                 # soda-core provides logs/measurements; we keep a compact view
                 for chk in sres.get_checks():
                     # chk.outcome: 'pass'|'fail'|'warn' etc.
-                    if getattr(chk, "is_failed", False) or getattr(chk, "outcome", "") == "fail":
-                        failures.append({
-                            "name": getattr(chk, "name", None),
-                            "identity": getattr(chk, "identity", None),
-                            "outcome": getattr(chk, "outcome", None),
-                            "diagnostics": getattr(chk, "diagnostics", None),
-                        })
+                    if (
+                        getattr(chk, "is_failed", False)
+                        or getattr(chk, "outcome", "") == "fail"
+                    ):
+                        failures.append(
+                            {
+                                "name": getattr(chk, "name", None),
+                                "identity": getattr(chk, "identity", None),
+                                "outcome": getattr(chk, "outcome", None),
+                                "diagnostics": getattr(chk, "diagnostics", None),
+                            }
+                        )
             except Exception:
                 # Best-effort
                 pass
@@ -197,5 +206,3 @@ class SodaCheckAdapter(BaseCheck):
                 status="FAIL",
                 details={"error": f"scan_execute_error: {e}"},
             )
-
-

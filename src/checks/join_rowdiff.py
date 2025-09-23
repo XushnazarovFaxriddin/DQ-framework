@@ -20,8 +20,7 @@ import pandas as pd
 
 from src.checks.base import BaseCheck
 from src.runtime.results import CheckResult
-from src.compiler.schema import ColumnMapEntry
-from src.utils.sql import build_aligned_select
+from src.utils.sql import build_aligned_select, wrap_order_by_limit, sanitize_identifier
 from src.runtime.registry import register_check
 
 
@@ -29,6 +28,7 @@ from src.runtime.registry import register_check
 class Tolerance:
     abs: Optional[float] = None
     pct: Optional[float] = None
+
 
 @register_check("join_rowdiff")
 class JoinRowDiffCheck(BaseCheck):
@@ -60,7 +60,9 @@ class JoinRowDiffCheck(BaseCheck):
         # Pairwise include_source + include_target
         if ccfg.include_source and ccfg.include_target:
             if len(ccfg.include_source) != len(ccfg.include_target):
-                raise ValueError("include_source and include_target must have the same length")
+                raise ValueError(
+                    "include_source and include_target must have the same length"
+                )
             if ccfg.include and len(ccfg.include) == len(ccfg.include_source):
                 canonical = list(ccfg.include)
             else:
@@ -84,14 +86,18 @@ class JoinRowDiffCheck(BaseCheck):
         For simplicity, apply same tolerance_abs/pct to all columns if provided,
         but allow column-specific override via rules: [{col: 'amount', tolerance_abs: 0.01, tolerance_pct: 0.1}, ...]
         """
-        tol_all = Tolerance(abs=self.check_cfg.tolerance_abs, pct=self.check_cfg.tolerance_pct)
+        tol_all = Tolerance(
+            abs=self.check_cfg.tolerance_abs, pct=self.check_cfg.tolerance_pct
+        )
         per_col: Dict[str, Tolerance] = {}
         if self.check_cfg.rules:
             for r in self.check_cfg.rules:
                 col = r.get("col") or r.get("column")
                 if not col:
                     continue
-                per_col[col] = Tolerance(abs=r.get("tolerance_abs"), pct=r.get("tolerance_pct"))
+                per_col[col] = Tolerance(
+                    abs=r.get("tolerance_abs"), pct=r.get("tolerance_pct")
+                )
         per_col["_default"] = tol_all
         return per_col
 
@@ -136,11 +142,13 @@ class JoinRowDiffCheck(BaseCheck):
         jk_src = list(self.table_cfg.join_keys.get("source", []))
         jk_tgt = list(self.table_cfg.join_keys.get("target", []))
         if len(jk_src) != len(jk_tgt):
-            raise ValueError("join_keys.source and join_keys.target must have the same length")
+            raise ValueError(
+                "join_keys.source and join_keys.target must have the same length"
+            )
 
         # Construct aligned projections including join keys with canonical names k1..kn
-        s_all = {f"k{i+1}": e for i, e in enumerate(jk_src)}
-        t_all = {f"k{i+1}": e for i, e in enumerate(jk_tgt)}
+        s_all = {f"k{i + 1}": e for i, e in enumerate(jk_src)}
+        t_all = {f"k{i + 1}": e for i, e in enumerate(jk_tgt)}
         for c in canonical:
             s_all[c] = s_proj[c]
             t_all[c] = t_proj[c]
@@ -149,14 +157,27 @@ class JoinRowDiffCheck(BaseCheck):
         s_sql = build_aligned_select(base_s_sql, s_all)
         t_sql = build_aligned_select(base_t_sql, t_all)
 
+        order_by_source = self.check_cfg.order_by_source
+        order_by_target = self.check_cfg.order_by_target
+        if not order_by_source and self.check_cfg.order_by:
+            order_by_source = [
+                sanitize_identifier(col) for col in self.check_cfg.order_by
+            ]
+        if not order_by_target and self.check_cfg.order_by:
+            order_by_target = [
+                sanitize_identifier(col) for col in self.check_cfg.order_by
+            ]
+
         # Fetch dataframes (bounded by preview limit to avoid memory blowup)
         limit = int(self.vars_map.get("max_rows_preview", 1000))
-        s_df = self.source.fetch_df(f"SELECT * FROM ({s_sql}) q LIMIT {limit}")
-        t_df = self.target.fetch_df(f"SELECT * FROM ({t_sql}) q LIMIT {limit}")
+        s_df = self.source.fetch_df(wrap_order_by_limit(s_sql, order_by_source, limit))
+        t_df = self.target.fetch_df(wrap_order_by_limit(t_sql, order_by_target, limit))
 
         # Merge on join keys
-        key_cols = [f"k{i+1}" for i in range(len(jk_src))]
-        merged = s_df.merge(t_df, on=key_cols, how="outer", suffixes=("_s", "_t"), indicator=True)
+        key_cols = [f"k{i + 1}" for i in range(len(jk_src))]
+        merged = s_df.merge(
+            t_df, on=key_cols, how="outer", suffixes=("_s", "_t"), indicator=True
+        )
 
         missing_on_t = merged[merged["_merge"] == "left_only"][key_cols].head(limit)
         extra_on_t = merged[merged["_merge"] == "right_only"][key_cols].head(limit)
@@ -188,7 +209,11 @@ class JoinRowDiffCheck(BaseCheck):
                 if len(diffs) >= limit:
                     break
 
-        status = "PASS" if (missing_on_t.empty and extra_on_t.empty and not diffs) else "FAIL"
+        status = (
+            "PASS"
+            if (missing_on_t.empty and extra_on_t.empty and not diffs)
+            else "FAIL"
+        )
         return CheckResult(
             table=self.table_cfg.name,
             check_type="join_rowdiff",

@@ -15,7 +15,7 @@ import importlib
 import os
 from typing import Dict
 
-from src.runtime.registry import CHECKS, register_check
+from src.runtime.registry import CHECKS
 from src.utils.logger import log
 
 
@@ -24,7 +24,12 @@ def _safe_import(module_path: str) -> None:
         importlib.import_module(module_path)
         log("checks.registry.import.ok", module=module_path)
     except Exception as e:
-        log("checks.registry.import.error", level="ERROR", module=module_path, error=str(e))
+        log(
+            "checks.registry.import.error",
+            level="ERROR",
+            module=module_path,
+            error=str(e),
+        )
 
 
 def _apply_disable_list() -> None:
@@ -59,14 +64,6 @@ def _import_builtin_checks() -> None:
     ]
     for m in modules:
         _safe_import(m)
-
-    # Ensure custom_check is available even if base wasn't imported elsewhere
-    try:
-        from src.checks.base import CustomCheck  # type: ignore
-        register_check("custom_check")(CustomCheck)
-        log("checks.registry.custom_check.enabled")
-    except Exception as e:
-        log("checks.registry.custom_check.error", level="ERROR", error=str(e))
 
 
 def _import_extra_checks_from_env() -> None:

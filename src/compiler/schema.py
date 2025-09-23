@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
+
 class HashingCfg(BaseModel):
     """
     Hashing policy for cross-engine consistency.
@@ -12,10 +13,28 @@ class HashingCfg(BaseModel):
     delimiter: delimiter between tokens when concatenating
     case: value normalization before hashing: "none" | "lower" | "upper"
     """
+
     algorithm: str = "double_md5"
     null_token: str = ""
     delimiter: str = "|"
     case: str = "none"  # none|lower|upper
+
+    @field_validator("algorithm")
+    @classmethod
+    def _validate_algorithm(cls, value: str) -> str:
+        allowed = {"double_md5", "md5_row", "sha256_row"}
+        if value not in allowed:
+            raise ValueError(f"Unsupported hashing algorithm: {value}")
+        return value
+
+    @field_validator("case")
+    @classmethod
+    def _validate_case(cls, value: str) -> str:
+        allowed = {"none", "lower", "upper"}
+        if value not in allowed:
+            raise ValueError(f"Hashing case must be one of {allowed}")
+        return value
+
 
 class ConnectionsCfg(BaseModel):
     """
@@ -23,6 +42,7 @@ class ConnectionsCfg(BaseModel):
     - *_env_var: where to read the URI from (e.g., env var name)
     - *_type: optional declared engine type for validation/telemetry (e.g., "postgres", "bigquery", "gcs_parquet")
     """
+
     source_env_var: str
     target_env_var: str
     source_type: Optional[str] = None
@@ -40,6 +60,7 @@ class QueryCfg(BaseModel):
       - order_by: used to impose a deterministic ordering before hashing/joins when needed
       - filters: config-level hints (can be rendered by planners or templates if desired)
     """
+
     table: Optional[str] = None
     select: Optional[str] = None
     query: Optional[str] = None
@@ -53,7 +74,8 @@ class QueryCfg(BaseModel):
             s = v.strip()
             return s if s else None
         return v
-    
+
+
 class ColumnMapEntry(BaseModel):
     """
     Canonical column mapping.
@@ -66,6 +88,7 @@ class ColumnMapEntry(BaseModel):
         source: amount
         target: total_amount
     """
+
     source: str
     target: str
 
@@ -84,6 +107,7 @@ class CheckCfg(BaseModel):
       - order_by_target: raw SQL expressions for target side
     Note: Ordering primarily affects preview/sampling (e.g., join_rowdiff LIMIT) and deterministic outputs.
     """
+
     type: str
 
     # Column selection/mapping
@@ -100,9 +124,9 @@ class CheckCfg(BaseModel):
     logic: Optional[Any] = None  # Python configs only
 
     # ordering
-    order_by: Optional[List[str]] = None            # canonical column names (after alignment)
-    order_by_source: Optional[List[str]] = None     # raw SQL expressions for source side
-    order_by_target: Optional[List[str]] = None     # raw SQL expressions for target side
+    order_by: Optional[List[str]] = None  # canonical column names (after alignment)
+    order_by_source: Optional[List[str]] = None  # raw SQL expressions for source side
+    order_by_target: Optional[List[str]] = None  # raw SQL expressions for target side
 
 
 class TableCfg(BaseModel):
@@ -112,6 +136,7 @@ class TableCfg(BaseModel):
     - 'column_map' defines canonical columns available for alignment.
     - 'join_keys' must list aligned pairs: source[i] corresponds to target[i].
     """
+
     name: str
     dynamic_pattern: Optional[bool] = False
     source: QueryCfg
@@ -136,6 +161,7 @@ class AlertsCfg(BaseModel):
         - kind: email
           to: ["jamshid.allayev@virginvoyages.com"]      # if omitted, fallback to env DQ_EMAILS
     """
+
     routes: List[Dict[str, Any]] = Field(default_factory=list)
 
 
@@ -143,6 +169,7 @@ class PlanningCfg(BaseModel):
     """
     Optional planning hints (e.g., partitioning strategy).
     """
+
     partitions: Optional[Dict[str, Any]] = None
 
 
@@ -150,6 +177,7 @@ class ConfigModel(BaseModel):
     """
     Top-level config schema.
     """
+
     connections: ConnectionsCfg
     defaults: Optional[DefaultsCfg] = DefaultsCfg()
     tables: List[TableCfg]

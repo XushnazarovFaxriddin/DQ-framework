@@ -29,7 +29,9 @@ class PostgresConnector(BaseConnector):
         self.engine = create_engine(uri, pool_pre_ping=True, future=True)
 
     # ----- SQL rendering -----
-    def render_select_sql(self, q: QueryCfg, *, columns: Optional[List[str]] = None) -> str:
+    def render_select_sql(
+        self, q: QueryCfg, *, columns: Optional[List[str]] = None
+    ) -> str:
         if q.query:
             return q.query
         sel = q.select.strip() if q.select else "*"
@@ -55,10 +57,14 @@ class PostgresConnector(BaseConnector):
 
     def hash_expr(self, cols: Iterable[str], hashing: HashingCfg) -> str:
         cols = list(cols)
-        delim = hashing.delimiter.replace("'", "''")  # escape single quotes in SQL literals
+        delim = hashing.delimiter.replace(
+            "'", "''"
+        )  # escape single quotes in SQL literals
 
         if hashing.algorithm == "double_md5":
-            inner_hashes = ", ".join([f"md5({self._token_expr(c, hashing)})" for c in cols])
+            inner_hashes = ", ".join(
+                [f"md5({self._token_expr(c, hashing)})" for c in cols]
+            )
             return f"lower(md5(concat_ws('{delim}', {inner_hashes})))"
 
         if hashing.algorithm == "md5_row":
