@@ -1,0 +1,46 @@
+connections:
+  source_env_var: PG_CONN
+  target_env_var: BQ_CONN
+
+defaults:
+  row_limit: 2000
+  hashing:
+    algorithm: double_md5
+    null_token: "∅"
+    delimiter: "|"
+    case: lower
+
+tables:
+  - name: APIS_INFO
+    # canonical mapping for alignment
+    column_map:
+      id:         { source: "id",           target: "id" }
+      api_id:     { source: "api_id",       target: "ApiId" }
+      amount:     { source: "amount",       target: "total_amount" }
+      updated_at: { source: "updated_at",   target: "updated_at" }
+
+    source:
+      table: seaware.APIS_INFO
+    target:
+      table: project.dataset.hvtb_parse_apis_info
+
+    join_keys:
+      source: [id, api_id]
+      target: [id, ApiId]
+
+    checks:
+      - type: row_count
+      - type: hash_diff
+        include: [id, api_id, amount]  # canonical names, resolved via table.column_map
+      # or 
+      - type: hash_diff
+        include_map:
+          id:      { source: "id",        target: "id" }
+          api_id:  { source: "api_id",    target: "ApiId" }
+          amount:  { source: "ROUND(amount,2)", target: "CAST(total_amount AS NUMERIC)" }
+      # or 
+      - type: hash_diff
+        include_source: [id, api_id, amount]
+        include_target: [id, ApiId, total_amount]
+
+
