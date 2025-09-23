@@ -31,18 +31,24 @@ class GcsCsvConnector(BaseConnector):
 
     def _ensure_extensions(self) -> None:
         self.con.execute("INSTALL httpfs; LOAD httpfs;")
-        self.con.execute("INSTALL parquet; LOAD parquet;")  # not strictly needed, but harmless
+        self.con.execute(
+            "INSTALL parquet; LOAD parquet;"
+        )  # not strictly needed, but harmless
         self.con.execute("INSTALL json; LOAD json;")
         self.con.execute("INSTALL digest; LOAD digest;")
 
     def _base_from_csv(self, gspath: str) -> str:
         return f"read_csv_auto('{gspath}', AUTO_DETECT=TRUE, HEADER=TRUE)"
 
-    def render_select_sql(self, q: QueryCfg, *, columns: Optional[List[str]] = None) -> str:
+    def render_select_sql(
+        self, q: QueryCfg, *, columns: Optional[List[str]] = None
+    ) -> str:
         if q.query:
             return q.query
         if not q.table:
-            raise ValueError("GCS CSV connector requires QueryCfg.table to be a gs:// path")
+            raise ValueError(
+                "GCS CSV connector requires QueryCfg.table to be a gs:// path"
+            )
         src = self._base_from_csv(q.table)
         sel = "*"
         if q.select and not columns:
@@ -84,7 +90,9 @@ class GcsCsvConnector(BaseConnector):
             chain = "concat(" + ", ".join(parts) + ")"
             return f"lower(md5({chain}))"
 
-        raise NotImplementedError("gcs_csv supports only double_md5 and md5_row algorithms")
+        raise NotImplementedError(
+            "gcs_csv supports only double_md5 and md5_row algorithms"
+        )
 
     def fetch_df(self, sql: str) -> pd.DataFrame:
         return self.con.execute(sql).df()

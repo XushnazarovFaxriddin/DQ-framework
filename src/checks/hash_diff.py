@@ -12,9 +12,9 @@ from typing import Dict, List, Tuple
 
 from src.checks.base import BaseCheck
 from src.runtime.results import CheckResult
-from src.compiler.schema import ColumnMapEntry
-from src.utils.sql import build_aligned_select
+from src.utils.sql import build_aligned_select, wrap_order_by, sanitize_identifier
 from src.runtime.registry import register_check
+
 
 @register_check("hash_diff")
 class HashDiffCheck(BaseCheck):
@@ -48,7 +48,9 @@ class HashDiffCheck(BaseCheck):
         # 3) pairwise include_source + include_target
         if ccfg.include_source and ccfg.include_target:
             if len(ccfg.include_source) != len(ccfg.include_target):
-                raise ValueError("include_source and include_target must have the same length")
+                raise ValueError(
+                    "include_source and include_target must have the same length"
+                )
             # Canonical names: prefer ccfg.include if given, else use source names
             if ccfg.include and len(ccfg.include) == len(ccfg.include_source):
                 canonical = list(ccfg.include)
@@ -65,7 +67,9 @@ class HashDiffCheck(BaseCheck):
             t_proj = {c: c for c in canonical}
             return canonical, s_proj, t_proj
 
-        raise ValueError("hash_diff requires at least one of: include_map, include (+table.column_map), include_source+include_target, or include")
+        raise ValueError(
+            "hash_diff requires at least one of: include_map, include (+table.column_map), include_source+include_target, or include"
+        )
 
     def run(self) -> CheckResult:
         # Build base selects from source/target configs
@@ -78,6 +82,20 @@ class HashDiffCheck(BaseCheck):
         # Build aligned subqueries projecting canonical columns on both sides
         s_sql = build_aligned_select(base_s_sql, s_proj)
         t_sql = build_aligned_select(base_t_sql, t_proj)
+
+        order_by_source = self.check_cfg.order_by_source
+        order_by_target = self.check_cfg.order_by_target
+        if not order_by_source and self.check_cfg.order_by:
+            order_by_source = [
+                sanitize_identifier(col) for col in self.check_cfg.order_by
+            ]
+        if not order_by_target and self.check_cfg.order_by:
+            order_by_target = [
+                sanitize_identifier(col) for col in self.check_cfg.order_by
+            ]
+
+        s_sql = wrap_order_by(s_sql, order_by_source)
+        t_sql = wrap_order_by(t_sql, order_by_target)
 
         # Hash expressions over canonical column names (same on both sides)
         s_hash_expr = self.source.hash_expr(canonical, self.hashing)
@@ -104,5 +122,5 @@ class HashDiffCheck(BaseCheck):
                 "extra_count": len(extra),
                 "missing_sample": missing[:10],
                 "extra_sample": extra[:10],
-            }
+            },
         )

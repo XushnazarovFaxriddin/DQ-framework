@@ -54,6 +54,7 @@ def _load_suite_file(path: str) -> Dict[str, Any]:
     ext = os.path.splitext(path)[1].lower()
     if ext in (".yaml", ".yml"):
         import yaml  # type: ignore
+
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     elif ext == ".json":
@@ -94,7 +95,9 @@ def _collect_expectations_from_rules(rules: List[Dict[str, Any]]) -> Dict[str, A
     return suite
 
 
-def _pandas_expectations_runner(df, expectations: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _pandas_expectations_runner(
+    df, expectations: List[Dict[str, Any]]
+) -> Dict[str, Any]:
     """
     Execute expectations on a Pandas dataset using either:
       - great_expectations.dataset.PandasDataset (legacy)
@@ -111,6 +114,7 @@ def _pandas_expectations_runner(df, expectations: List[Dict[str, Any]]) -> Dict[
     # Prefer ge.dataset.PandasDataset if available (stable 'expect_*' API)
     try:
         from great_expectations.dataset import PandasDataset  # type: ignore
+
         ds = PandasDataset(df)
     except Exception:
         # Fallback to ge.from_pandas (GX)
@@ -165,7 +169,11 @@ def _pandas_expectations_runner(df, expectations: List[Dict[str, Any]]) -> Dict[
     }
 
 
-def _run_checkpoint(checkpoint_file: str, gx_context_dir: Optional[str], variables: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _run_checkpoint(
+    checkpoint_file: str,
+    gx_context_dir: Optional[str],
+    variables: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
     """
     Run a GE checkpoint from a YAML file using DataContext.
     Returns a summary dict.
@@ -177,15 +185,22 @@ def _run_checkpoint(checkpoint_file: str, gx_context_dir: Optional[str], variabl
         raise ImportError("great_expectations DataContext is not available") from e
 
     # Build context (explicit dir if provided)
-    context = DataContext(context_root_dir=gx_context_dir) if gx_context_dir else DataContext()
+    context = (
+        DataContext(context_root_dir=gx_context_dir)
+        if gx_context_dir
+        else DataContext()
+    )
 
     # Load checkpoint YAML and register/update
     import yaml  # type: ignore
+
     with open(checkpoint_file, "r", encoding="utf-8") as f:
         cp_yaml = yaml.safe_load(f)
 
     # Name required for add_or_update_checkpoint
-    cp_name = cp_yaml.get("name") or os.path.splitext(os.path.basename(checkpoint_file))[0]
+    cp_name = (
+        cp_yaml.get("name") or os.path.splitext(os.path.basename(checkpoint_file))[0]
+    )
     cp_yaml["name"] = cp_name
 
     # Merge runtime variables if given (for template substitution)
@@ -210,11 +225,15 @@ def _run_checkpoint(checkpoint_file: str, gx_context_dir: Optional[str], variabl
                 continue
             for r in v.get("results", []):
                 if not r.get("success", True):
-                    failed_expectations.append({
-                        "expectation_type": r.get("expectation_config", {}).get("expectation_type"),
-                        "kwargs": r.get("expectation_config", {}).get("kwargs"),
-                        "result": r.get("result"),
-                    })
+                    failed_expectations.append(
+                        {
+                            "expectation_type": r.get("expectation_config", {}).get(
+                                "expectation_type"
+                            ),
+                            "kwargs": r.get("expectation_config", {}).get("kwargs"),
+                            "result": r.get("result"),
+                        }
+                    )
     except Exception:
         # Conservative
         has_failures = True
@@ -227,6 +246,8 @@ def _run_checkpoint(checkpoint_file: str, gx_context_dir: Optional[str], variabl
 
 
 register_check("ge_expectations")
+
+
 class GECheckAdapter(BaseCheck):
     """
     Great Expectations adapter.
@@ -288,7 +309,9 @@ class GECheckAdapter(BaseCheck):
 
         # Fetch DataFrame
         try:
-            df = (self.source if side == "source" else self.target).fetch_df(f"SELECT * FROM ({sql}) q LIMIT {limit}")
+            df = (self.source if side == "source" else self.target).fetch_df(
+                f"SELECT * FROM ({sql}) q LIMIT {limit}"
+            )
         except Exception as e:
             return CheckResult(
                 table=self.table_cfg.name,
@@ -320,5 +343,3 @@ class GECheckAdapter(BaseCheck):
                 status="FAIL",
                 details={"error": f"ge_runner_error: {e}"},
             )
-
-

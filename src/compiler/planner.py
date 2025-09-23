@@ -54,6 +54,7 @@ from src.compiler.schema import ConfigModel, TableCfg, CheckCfg, QueryCfg, Plann
 # Templating helpers (Jinja2)
 # ----------------------------
 
+
 def _render_text(text: Optional[str], ctx: Dict[str, Any]) -> Optional[str]:
     """Render a text with Jinja2 if it contains templates; return unchanged otherwise."""
     if text is None:
@@ -81,6 +82,7 @@ def _render_query_cfg(q: QueryCfg, ctx: Dict[str, Any]) -> QueryCfg:
 # Partition windows
 # ----------------------------
 
+
 @dataclass(frozen=True)
 class PartitionWindow:
     start: datetime
@@ -89,10 +91,16 @@ class PartitionWindow:
 
 def _default_single_window(now: datetime) -> List[PartitionWindow]:
     """Single non-partitioned window for simplicity (start at midnight UTC)."""
-    return [PartitionWindow(start=now.replace(hour=0, minute=0, second=0, microsecond=0), end=now)]
+    return [
+        PartitionWindow(
+            start=now.replace(hour=0, minute=0, second=0, microsecond=0), end=now
+        )
+    ]
 
 
-def _partition_windows(pcfg: Optional[PlanningCfg], now: datetime) -> List[PartitionWindow]:
+def _partition_windows(
+    pcfg: Optional[PlanningCfg], now: datetime
+) -> List[PartitionWindow]:
     """Compute list of partition windows based on planning config."""
     if not pcfg or not pcfg.partitions:
         return _default_single_window(now)
@@ -124,12 +132,14 @@ def _partition_windows(pcfg: Optional[PlanningCfg], now: datetime) -> List[Parti
 # Execution units & Plan
 # ----------------------------
 
+
 @dataclass
 class TableUnit:
     """
     A concrete execution unit for a single table + a specific partition window.
     QueryCfg fields are rendered (templated) for the given partition context.
     """
+
     table_cfg: TableCfg
     partition: Optional[PartitionWindow] = None
 
@@ -139,6 +149,7 @@ class Plan:
     """
     Threaded execution plan.
     """
+
     cfg: ConfigModel
     vars_map: Dict[str, Any]
     tables: List[TableUnit] = field(default_factory=list)
@@ -148,7 +159,7 @@ class Plan:
     # Public API
     # ----------------------------
 
-    def run(self) -> Dict[str, Any]:
+    def run(self) -> RunResult:
         """
         Execute all TableUnits in parallel (configurable concurrency).
         - Submits each table_unit to the thread pool
@@ -164,13 +175,15 @@ class Plan:
         check_timeout_sec = _parse_optional_int(self.vars_map.get("check_timeout_sec"))
         max_rows_preview = int(self.vars_map.get("max_rows_preview", 1000))
 
-        log("execution.start",
+        log(
+            "execution.start",
             table_units=len(self.tables),
             concurrency_tables=concurrency_tables,
             concurrency_checks=concurrency_checks,
             table_timeout_sec=table_timeout_sec,
             check_timeout_sec=check_timeout_sec,
-            max_rows_preview=max_rows_preview)
+            max_rows_preview=max_rows_preview,
+        )
 
         all_results: List[CheckResult] = []
 
@@ -178,34 +191,67 @@ class Plan:
         with ThreadPoolExecutor(max_workers=max(1, concurrency_tables)) as pool:
             fut_to_tu: Dict[Future, TableUnit] = {}
             for tu in self.tables:
-                fut = pool.submit(self._run_table_unit, tu, concurrency_checks, check_timeout_sec)
+                fut = pool.submit(
+                    self._run_table_unit, tu, concurrency_checks, check_timeout_sec
+                )
                 fut_to_tu[fut] = tu
-                log("table.submitted", table=tu.table_cfg.name, partition=_part_dict(tu.partition))
+                log(
+                    "table.submitted",
+                    table=tu.table_cfg.name,
+                    partition=_part_dict(tu.partition),
+                )
 
             for fut in as_completed(fut_to_tu):
                 tu = fut_to_tu[fut]
                 try:
                     # Optional per-table timeout
-                    results: List[CheckResult] = fut.result(timeout=table_timeout_sec) if table_timeout_sec else fut.result()
+                    results: List[CheckResult] = (
+                        fut.result(timeout=table_timeout_sec)
+                        if table_timeout_sec
+                        else fut.result()
+                    )
                     all_results.extend(results)
                 except TimeoutError:
                     # Mark the entire table unit as failed due to timeout
-                    all_results.append(CheckResult(
+                    all_results.append(
+                        CheckResult(
+                            table=tu.table_cfg.name,
+                            check_type="__table__",
+                            status="FAIL",
+                            details={
+                                "error": "table_timeout",
+                                "timeout_sec": table_timeout_sec,
+                                "partition": _part_dict(tu.partition),
+                            },
+                        )
+                    )
+                    log(
+                        "table.timeout",
+                        level="ERROR",
                         table=tu.table_cfg.name,
-                        check_type="__table__",
-                        status="FAIL",
-                        details={"error": "table_timeout", "timeout_sec": table_timeout_sec, "partition": _part_dict(tu.partition)}
-                    ))
-                    log("table.timeout", level="ERROR", table=tu.table_cfg.name, timeout_sec=table_timeout_sec, partition=_part_dict(tu.partition))
+                        timeout_sec=table_timeout_sec,
+                        partition=_part_dict(tu.partition),
+                    )
                 except Exception as e:
                     # Mark as failed but let others continue
-                    all_results.append(CheckResult(
+                    all_results.append(
+                        CheckResult(
+                            table=tu.table_cfg.name,
+                            check_type="__table__",
+                            status="FAIL",
+                            details={
+                                "error": str(e),
+                                "partition": _part_dict(tu.partition),
+                            },
+                        )
+                    )
+                    log(
+                        "table.error",
+                        level="ERROR",
                         table=tu.table_cfg.name,
-                        check_type="__table__",
-                        status="FAIL",
-                        details={"error": str(e), "partition": _part_dict(tu.partition)}
-                    ))
-                    log("table.error", level="ERROR", table=tu.table_cfg.name, error=str(e), partition=_part_dict(tu.partition))
+                        error=str(e),
+                        partition=_part_dict(tu.partition),
+                    )
 
         # Aggregate overall
         run = RunResult(checks=all_results)
@@ -219,18 +265,14 @@ class Plan:
         }
         log("execution.finish", overall_status=run.overall_status, stats=stats)
 
-        # Dispatch alerts at the end (best-effort)
         try:
             from src.alerts.dispatcher import dispatch_alerts
+
             dispatch_alerts(self.cfg, run)
         except Exception as e:
             log("alerts.dispatch.error", level="ERROR", error=str(e))
 
-        return {
-            "overall_status": run.overall_status,
-            "stats": stats,
-            "results": [c.__dict__ for c in all_results],
-        }
+        return run
 
     # ----------------------------
     # Internals
@@ -240,11 +282,15 @@ class Plan:
         """Build connection context lazily (URIs from env + connector pair)."""
         if self.context is None:
             self.context = build_run_context(self.cfg, self.vars_map)
-            log("context.ready",
+            log(
+                "context.ready",
                 source_engine=self.context.engines[0],
-                target_engine=self.context.engines[1])
+                target_engine=self.context.engines[1],
+            )
 
-    def _run_table_unit(self, tu: TableUnit, concurrency_checks: int, check_timeout_sec: Optional[int]) -> List[CheckResult]:
+    def _run_table_unit(
+        self, tu: TableUnit, concurrency_checks: int, check_timeout_sec: Optional[int]
+    ) -> List[CheckResult]:
         """
         Run all checks for a given table unit.
         Optionally parallelize checks within the table using a per-table thread pool.
@@ -262,13 +308,24 @@ class Plan:
         if concurrency_checks <= 1 or len(runners) <= 1:
             # Sequential
             for chk_cfg, runner in runners:
-                results.append(self._execute_check_runner(tu.table_cfg, chk_cfg, runner, cl, check_timeout_sec))
+                results.append(
+                    self._execute_check_runner(
+                        tu.table_cfg, chk_cfg, runner, cl, check_timeout_sec
+                    )
+                )
         else:
             # Parallel within table
             with ThreadPoolExecutor(max_workers=max(1, concurrency_checks)) as pool:
                 fut_to_chk: Dict[Future, Tuple[CheckCfg, Any]] = {}
                 for chk_cfg, runner in runners:
-                    fut = pool.submit(self._execute_check_runner, tu.table_cfg, chk_cfg, runner, cl, check_timeout_sec)
+                    fut = pool.submit(
+                        self._execute_check_runner,
+                        tu.table_cfg,
+                        chk_cfg,
+                        runner,
+                        cl,
+                        check_timeout_sec,
+                    )
                     fut_to_chk[fut] = (chk_cfg, runner)
                     cl.log("check.submitted", check_type=chk_cfg.type)
 
@@ -277,16 +334,29 @@ class Plan:
                     try:
                         results.append(fut.result())
                     except Exception as e:
-                        cl.log("check.pool.error", level="ERROR", check_type=chk_cfg.type, error=str(e))
-                        results.append(CheckResult(
-                            table=tu.table_cfg.name, check_type=chk_cfg.type, status="FAIL",
-                            details={"error": str(e)}
-                        ))
+                        cl.log(
+                            "check.pool.error",
+                            level="ERROR",
+                            check_type=chk_cfg.type,
+                            error=str(e),
+                        )
+                        results.append(
+                            CheckResult(
+                                table=tu.table_cfg.name,
+                                check_type=chk_cfg.type,
+                                status="FAIL",
+                                details={"error": str(e)},
+                            )
+                        )
 
-        cl.log("table.finish",
-               summary={"pass": sum(r.status == "PASS" for r in results),
-                        "fail": sum(r.status == "FAIL" for r in results),
-                        "skip": sum(r.status == "SKIP" for r in results)})
+        cl.log(
+            "table.finish",
+            summary={
+                "pass": sum(r.status == "PASS" for r in results),
+                "fail": sum(r.status == "FAIL" for r in results),
+                "skip": sum(r.status == "SKIP" for r in results),
+            },
+        )
         return results
 
     def _make_check_runner(self, table: TableCfg, chk_cfg: CheckCfg):
@@ -296,9 +366,15 @@ class Plan:
         """
         runner_cls = CHECKS.get(chk_cfg.type)
         if runner_cls is None:
+
             def _skip_runner():
-                return CheckResult(table=table.name, check_type=chk_cfg.type, status="SKIP",
-                                   details={"reason": "unknown_check_type"})
+                return CheckResult(
+                    table=table.name,
+                    check_type=chk_cfg.type,
+                    status="SKIP",
+                    details={"reason": "unknown_check_type"},
+                )
+
             return _skip_runner
 
         # Instantiate the runner with required dependencies
@@ -316,8 +392,14 @@ class Plan:
 
         return _runner
 
-    def _execute_check_runner(self, table: TableCfg, chk_cfg: CheckCfg, runner_callable, cl: ContextLogger,
-                              timeout_sec: Optional[int]) -> CheckResult:
+    def _execute_check_runner(
+        self,
+        table: TableCfg,
+        chk_cfg: CheckCfg,
+        runner_callable,
+        cl: ContextLogger,
+        timeout_sec: Optional[int],
+    ) -> CheckResult:
         """
         Execute a single check runner with optional timeout.
         On failure/timeout, returns a FAIL CheckResult but does not raise.
@@ -331,23 +413,46 @@ class Plan:
                 cl2.log("check.finish", status=res.status, details=res.details)
                 return res
             except Exception as e:
-                cl.log("check.error", level="ERROR", check_type=chk_cfg.type, error=str(e))
-                return CheckResult(table=table.name, check_type=chk_cfg.type, status="FAIL",
-                                   details={"error": str(e)})
+                cl.log(
+                    "check.error", level="ERROR", check_type=chk_cfg.type, error=str(e)
+                )
+                return CheckResult(
+                    table=table.name,
+                    check_type=chk_cfg.type,
+                    status="FAIL",
+                    details={"error": str(e)},
+                )
 
-        # With timeout, run the runner in a mini thread pool
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(_safe_run_callable, runner_callable, chk_cfg.type, cl)
+            # With timeout, run the runner in a mini thread pool
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    _safe_run_callable,
+                    runner_callable,
+                    table.name,
+                    chk_cfg.type,
+                    cl,
+                )
             try:
                 return future.result(timeout=timeout_sec)
             except TimeoutError:
-                cl.log("check.timeout", level="ERROR", check_type=chk_cfg.type, timeout_sec=timeout_sec)
-                return CheckResult(table=table.name, check_type=chk_cfg.type, status="FAIL",
-                                   details={"error": "check_timeout", "timeout_sec": timeout_sec})
+                cl.log(
+                    "check.timeout",
+                    level="ERROR",
+                    check_type=chk_cfg.type,
+                    timeout_sec=timeout_sec,
+                )
+                return CheckResult(
+                    table=table.name,
+                    check_type=chk_cfg.type,
+                    status="FAIL",
+                    details={"error": "check_timeout", "timeout_sec": timeout_sec},
+                )
+
 
 # ----------------------------
 # Utilities
 # ----------------------------
+
 
 def _parse_optional_int(v: Any) -> Optional[int]:
     try:
@@ -367,7 +472,9 @@ def _part_dict(pw: Optional[PartitionWindow]) -> Optional[Dict[str, str]]:
     return {"start": pw.start.isoformat(), "end": pw.end.isoformat()}
 
 
-def _safe_run_callable(fn, check_type: str, cl: ContextLogger) -> CheckResult:
+def _safe_run_callable(
+    fn, table_name: str, check_type: str, cl: ContextLogger
+) -> CheckResult:
     """
     Execute a check runner callable, capturing exceptions into FAIL results.
     Used when a timeout is requested.
@@ -380,14 +487,18 @@ def _safe_run_callable(fn, check_type: str, cl: ContextLogger) -> CheckResult:
         return res
     except Exception as e:
         cl.log("check.error", level="ERROR", check_type=check_type, error=str(e))
-        # Caller must provide table name if needed; here we cannot access it directly.
-        # Return a generic result; the caller wraps it with correct table when using this path.
-        return CheckResult(table="<unknown>", check_type=check_type, status="FAIL", details={"error": str(e)})
+        return CheckResult(
+            table=table_name,
+            check_type=check_type,
+            status="FAIL",
+            details={"error": str(e)},
+        )
 
 
 # ----------------------------
 # Public builder
 # ----------------------------
+
 
 def build_plan(cfg: ConfigModel, vars_map: Dict[str, Any]) -> Plan:
     """
@@ -397,9 +508,15 @@ def build_plan(cfg: ConfigModel, vars_map: Dict[str, Any]) -> Plan:
     now = datetime.now(timezone.utc)
     windows = _partition_windows(cfg.planning, now)
 
-    log("plan.build.start",
+    log(
+        "plan.build.start",
         windows=len(windows),
-        planning_mode=(cfg.planning.partitions.get("mode") if cfg.planning and cfg.planning.partitions else "none"))
+        planning_mode=(
+            cfg.planning.partitions.get("mode")
+            if cfg.planning and cfg.planning.partitions
+            else "none"
+        ),
+    )
 
     units: List[TableUnit] = []
     for t in cfg.tables:

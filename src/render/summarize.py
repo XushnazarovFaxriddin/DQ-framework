@@ -12,7 +12,7 @@ def summarize_run(result: RunResult) -> str:
     lines = [
         f"Status: {result.overall_status}",
         f"Checks - PASS: {passed} | FAIL: {failed} | SKIP: {skipped}",
-        ""
+        "",
     ]
     if failed:
         lines.append("Failures:")

@@ -15,6 +15,7 @@ Notes:
 """
 
 from typing import Iterable, List, Optional, Any
+import hashlib
 import duckdb
 import pandas as pd
 
@@ -37,20 +38,48 @@ class GcsParquetConnector(BaseConnector):
         self._ensure_extensions()
 
     def _ensure_extensions(self) -> None:
-        # httpfs enables gs://, parquet is the file format reader, digest for md5
-        self.con.execute("INSTALL httpfs; LOAD httpfs;")
-        self.con.execute("INSTALL parquet; LOAD parquet;")
-        self.con.execute("INSTALL json; LOAD json;")
-        self.con.execute("INSTALL digest; LOAD digest;")
+        def _register_digest(conn):
+            def _md5(value: Any) -> str:
+                data = "" if value is None else str(value)
+                return hashlib.md5(data.encode("utf-8")).hexdigest()
+
+            conn.create_function("md5", _md5, return_type=str)
+
+        for name, required in (
+            ("httpfs", True),
+            ("parquet", True),
+            ("json", False),
+            ("digest", True),
+        ):
+            try:
+                self.con.execute(f"INSTALL {name};")
+            except Exception:
+                if required:
+                    if name == "digest":
+                        _register_digest(self.con)
+                        continue
+                    raise
+            try:
+                self.con.execute(f"LOAD {name};")
+            except Exception:
+                if required:
+                    if name == "digest":
+                        _register_digest(self.con)
+                        continue
+                    raise
 
     def _base_from_parquet(self, gspath: str) -> str:
         return f"read_parquet('{gspath}')"
 
-    def render_select_sql(self, q: QueryCfg, *, columns: Optional[List[str]] = None) -> str:
+    def render_select_sql(
+        self, q: QueryCfg, *, columns: Optional[List[str]] = None
+    ) -> str:
         if q.query:
             return q.query
         if not q.table:
-            raise ValueError("GCS Parquet connector requires QueryCfg.table to be a gs:// path")
+            raise ValueError(
+                "GCS Parquet connector requires QueryCfg.table to be a gs:// path"
+            )
         src = self._base_from_parquet(q.table)
         sel = "*"
         if q.select and not columns:
@@ -93,7 +122,9 @@ class GcsParquetConnector(BaseConnector):
             chain = "concat(" + ", ".join(pieces) + ")"
             return f"lower(md5({chain}))"
 
-        raise NotImplementedError("gcs_parquet supports only double_md5 and md5_row algorithms")
+        raise NotImplementedError(
+            "gcs_parquet supports only double_md5 and md5_row algorithms"
+        )
 
     def fetch_df(self, sql: str) -> pd.DataFrame:
         return self.con.execute(sql).df()

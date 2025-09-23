@@ -1,21 +1,35 @@
-"""
-Partitions check:
-- Compares row counts (or a chosen aggregation) per partition between source and target.
-- Config:
-    type: partitions
-    partition_by: date_expr_on_each_side_optional_via_mapping OR a single canonical name with table.column_map
-    include_map: { pkey: {source: "...", target: "..."}}   # to define partition expression
-    method: "count" | "sum" | "avg" | ... (default "count")
-    column: "<col>"   # required for methods other than count/distinct_count
-    top_n: 50         # preview items
-- Use this check when you need granular parity by date/hour keys beyond global counts.
-"""
+"""Partitions check comparing aggregates per partition key."""
 
-from typing import Dict, List, Tuple, Any
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
 from src.checks.base import BaseCheck
-from src.runtime.results import CheckResult
-from src.utils.sql import build_aligned_select
+from src.compiler.schema import ColumnMapEntry
 from src.runtime.registry import register_check
+from src.runtime.results import CheckResult
+from src.utils.sql import build_aligned_select, wrap_order_by
+
+
+def _map_order_by(
+    columns: Optional[List[str]],
+    column_map: Optional[Dict[str, ColumnMapEntry]],
+    *,
+    side: str,
+) -> Optional[List[str]]:
+    if not columns:
+        return None
+    if not column_map:
+        return columns
+    mapped: List[str] = []
+    for canonical in columns:
+        entry = column_map.get(canonical)
+        if entry is None:
+            mapped.append(canonical)
+            continue
+        mapped.append(entry.source if side == "source" else entry.target)
+    return mapped
+
 
 @register_check("partitions")
 class PartitionsCheck(BaseCheck):
@@ -41,29 +55,45 @@ class PartitionsCheck(BaseCheck):
         column = getattr(self.check_cfg, "column", None)
         top_n = int(getattr(self.check_cfg, "top_n", 50))
 
-        # Determine partition projection via include_map (preferred) or table.column_map/include
         if self.check_cfg.include_map:
-            # Single canonical partition key expected
             if len(self.check_cfg.include_map) != 1:
-                raise ValueError("partitions.include_map must contain exactly one entry defining the partition key")
+                raise ValueError(
+                    "partitions.include_map must contain exactly one entry defining the partition key"
+                )
             canon = next(iter(self.check_cfg.include_map.keys()))
             s_part = self.check_cfg.include_map[canon].source
             t_part = self.check_cfg.include_map[canon].target
         else:
-            # Try table.column_map + include (single canonical)
-            if self.table_cfg.column_map and self.check_cfg.include and len(self.check_cfg.include) == 1:
+            if (
+                self.table_cfg.column_map
+                and self.check_cfg.include
+                and len(self.check_cfg.include) == 1
+            ):
                 canon = self.check_cfg.include[0]
                 if canon not in self.table_cfg.column_map:
-                    raise ValueError(f"partition canonical '{canon}' not found in table.column_map")
+                    raise ValueError(
+                        f"partition canonical '{canon}' not found in table.column_map"
+                    )
                 s_part = self.table_cfg.column_map[canon].source
                 t_part = self.table_cfg.column_map[canon].target
             else:
-                raise ValueError("partitions requires a single partition key via include_map or table.column_map + include[1]")
+                raise ValueError(
+                    "partitions requires a single partition key via include_map or table.column_map + include[1]"
+                )
 
         s_base = self.source.render_select_sql(self.table_cfg.source)
         t_base = self.target.render_select_sql(self.table_cfg.target)
 
-        # Aligned select with partition key named 'p'
+        order_by_source = self.check_cfg.order_by_source or _map_order_by(
+            self.check_cfg.order_by, self.table_cfg.column_map, side="source"
+        )
+        order_by_target = self.check_cfg.order_by_target or _map_order_by(
+            self.check_cfg.order_by, self.table_cfg.column_map, side="target"
+        )
+
+        s_base = wrap_order_by(s_base, order_by_source)
+        t_base = wrap_order_by(t_base, order_by_target)
+
         s_sql = build_aligned_select(s_base, {"p": s_part})
         t_sql = build_aligned_select(t_base, {"p": t_part})
 
@@ -100,5 +130,5 @@ class PartitionsCheck(BaseCheck):
                 "diff_sample": diffs[:top_n],
                 "source_total_partitions": len(s_map),
                 "target_total_partitions": len(t_map),
-            }
+            },
         )

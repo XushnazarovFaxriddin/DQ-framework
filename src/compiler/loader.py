@@ -1,80 +1,89 @@
+"""Configuration loader for YAML and Python sources."""
+
+from __future__ import annotations
+
 import importlib.util
+import inspect
 import os
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 import yaml
 
-from ..utils.logger import log
-
+from src.utils.logger import log
 
 _ENV_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def _interpolate_env(text: str) -> str:
-    """
-    Replace ${VAR} occurrences with environment variable values.
-    Missing variables are left as-is to avoid surprising defaults;
-    upstream validation can enforce required envs where needed.
-    """
-    def repl(m):
-        var = m.group(1)
-        return os.getenv(var, m.group(0))
+    """Replace ``${VAR}`` occurrences with environment variable values."""
+
+    def repl(match: re.Match[str]) -> str:
+        var = match.group(1)
+        return os.getenv(var, match.group(0))
+
     return _ENV_REF.sub(repl, text)
 
 
 def _load_yaml(path: str) -> Dict[str, Any]:
-    """
-    Load YAML config with environment interpolation.
-    Jinja is intentionally not hard-wired here to keep YAML simple;
-    if templating is required, it can be layered in the planner.
-    """
-    with open(path, "r", encoding="utf-8") as f:
-        raw = f.read()
+    with open(path, "r", encoding="utf-8") as handle:
+        raw = handle.read()
     rendered = _interpolate_env(raw)
-    try:
-        data = yaml.safe_load(rendered) or {}
-        if not isinstance(data, dict):
-            raise ValueError("Top-level YAML must be a mapping")
-        return data
-    except Exception as e:
-        log("config.load.yaml.error", path=path, error=str(e), level="ERROR")
-        raise
+    data = yaml.safe_load(rendered) or {}
+    if not isinstance(data, Mapping):
+        raise ValueError("Top-level YAML must be a mapping")
+    return dict(data)
+
+
+def _evaluate_python_payload(payload: Any, vars_map: Dict[str, Any]) -> Dict[str, Any]:
+    if callable(payload):
+        result = payload(vars_map)
+        if isinstance(result, Mapping):
+            return dict(result)
+        raise TypeError("Python config callable must return a mapping")
+    if isinstance(payload, Mapping):
+        return dict(payload)
+    raise TypeError("Python config must provide a mapping or callable returning one")
 
 
 def _load_py(path: str, vars_map: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Load a Python config module and execute its `build(vars)` factory.
-    The module is not imported into sys.modules to reduce side-effects.
-    """
     spec = importlib.util.spec_from_file_location("dqf_pyconfig", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Unable to create import spec for: {path}")
-    mod = importlib.util.module_from_spec(spec)
+    module = importlib.util.module_from_spec(spec)
     try:
-        spec.loader.exec_module(mod)  # type: ignore[attr-defined]
-    except Exception as e:
-        log("config.load.py.exec.error", path=path, error=str(e), level="ERROR")
+        spec.loader.exec_module(module)  # type: ignore[attr-defined]
+    except Exception as exc:  # pragma: no cover - surfaced in tests
+        log("config.load.py.exec.error", path=path, error=str(exc), level="ERROR")
         raise
 
-    if not hasattr(mod, "build"):
-        raise AttributeError(f"Python config must define a 'build(vars: dict) -> dict' function: {path}")
+    candidates: list[Any] = []
+    if hasattr(module, "build"):
+        candidates.append(getattr(module, "build"))
+    if hasattr(module, "CONFIG"):
+        candidates.append(getattr(module, "CONFIG"))
 
-    try:
-        data = mod.build(vars_map)  # type: ignore[attr-defined]
-        if not isinstance(data, dict):
-            raise TypeError("build(vars) must return a dict")
-        return data
-    except Exception as e:
-        log("config.load.py.build.error", path=path, error=str(e), level="ERROR")
-        raise
+    if not candidates:
+        raise AttributeError(
+            "Python config must expose a 'build(vars)' callable or 'CONFIG' mapping/callable"
+        )
+
+    for candidate in candidates:
+        try:
+            payload = (
+                candidate(vars_map) if inspect.isfunction(candidate) else candidate
+            )
+            return _evaluate_python_payload(payload, vars_map)
+        except TypeError:
+            # Candidate may be a callable without vars argument
+            if callable(candidate):
+                payload = candidate()
+                return _evaluate_python_payload(payload, vars_map)
+            raise
+    raise RuntimeError("Unable to evaluate Python config payload")
 
 
-def load_config(args) -> Dict[str, Any]:
-    """
-    Public loader dispatch.
-    Returns a raw python dict (later validated by pydantic schema).
-    """
+def load_config(args: Any) -> Dict[str, Any]:
     path = args.config_file
     if not os.path.exists(path):
         raise FileNotFoundError(f"Config file not found: {path}")

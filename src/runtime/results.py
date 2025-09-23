@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 class CheckResult:
     table: str
     check_type: str
-    status: str               # PASS | FAIL | SKIP
+    status: str  # PASS | FAIL | SKIP
     details: Dict[str, Any] = field(default_factory=dict)
 
 

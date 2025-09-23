@@ -15,6 +15,7 @@ Notes:
 """
 
 from typing import Iterable, List, Optional, Any
+import hashlib
 import os
 import duckdb
 import pandas as pd
@@ -40,15 +41,36 @@ class CsvLocalConnector(BaseConnector):
     # ------------------------------
     # DuckDB extension bootstrap
     # ------------------------------
-    def _ensure_extensions(self) -> None:
+    def _register_digest_udf(self) -> None:
+        def _md5(value: Any) -> str:
+            data = "" if value is None else str(value)
+            return hashlib.md5(data.encode("utf-8")).hexdigest()
+
+        self.con.create_function("md5", _md5, return_type=str)
+
+    def _try_install(self, name: str, *, required: bool = False) -> None:
         try:
-            self.con.execute("INSTALL httpfs; LOAD httpfs;")
+            self.con.execute(f"INSTALL {name};")
         except Exception:
-            # httpfs isn't strictly required for local files; ignore if not available
-            pass
-        self.con.execute("INSTALL parquet; LOAD parquet;")
-        self.con.execute("INSTALL json; LOAD json;")
-        self.con.execute("INSTALL digest; LOAD digest;")  # md5
+            if required:
+                if name == "digest":
+                    self._register_digest_udf()
+                    return
+                raise
+        try:
+            self.con.execute(f"LOAD {name};")
+        except Exception:
+            if required:
+                if name == "digest":
+                    self._register_digest_udf()
+                    return
+                raise
+
+    def _ensure_extensions(self) -> None:
+        self._try_install("httpfs")
+        self._try_install("parquet")
+        self._try_install("json")
+        self._try_install("digest", required=True)
 
     # ------------------------------
     # SQL rendering
@@ -58,13 +80,17 @@ class CsvLocalConnector(BaseConnector):
         abspath = os.path.abspath(path)
         return f"read_csv_auto('{abspath}', AUTO_DETECT=TRUE, HEADER=TRUE)"
 
-    def render_select_sql(self, q: QueryCfg, *, columns: Optional[List[str]] = None) -> str:
+    def render_select_sql(
+        self, q: QueryCfg, *, columns: Optional[List[str]] = None
+    ) -> str:
         if q.query:
             # Trust user-provided SQL verbatim
             return q.query
 
         if not q.table:
-            raise ValueError("CSV connector requires QueryCfg.table to be a CSV file path")
+            raise ValueError(
+                "CSV connector requires QueryCfg.table to be a CSV file path"
+            )
 
         src = self._base_from_csv(q.table)
         sel = "*"
@@ -94,7 +120,6 @@ class CsvLocalConnector(BaseConnector):
         delim = hashing.delimiter.replace("'", "''")
 
         if hashing.algorithm == "double_md5":
-            inner = ", ".join([f"md5({self._token(c, hashing)})" for c in cols])
             # concat_ws equivalent: concat with delimiters interleaved
             pieces = []
             for i, e in enumerate(cols):
@@ -113,7 +138,9 @@ class CsvLocalConnector(BaseConnector):
             chain = "concat(" + ", ".join(pieces) + ")"
             return f"lower(md5({chain}))"
 
-        raise NotImplementedError("csv connector supports only double_md5 and md5_row algorithms")
+        raise NotImplementedError(
+            "csv connector supports only double_md5 and md5_row algorithms"
+        )
 
     # ------------------------------
     # Fetch helpers

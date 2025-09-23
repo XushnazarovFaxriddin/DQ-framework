@@ -14,10 +14,13 @@ from src.checks.base import BaseCheck
 from src.runtime.results import CheckResult
 from src.runtime.registry import register_check
 
+
 @register_check("freshness")
 class FreshnessCheck(BaseCheck):
     def run(self) -> CheckResult:
-        column = getattr(self.check_cfg, "column", None) or getattr(self.check_cfg, "col", None)
+        column = getattr(self.check_cfg, "column", None) or getattr(
+            self.check_cfg, "col", None
+        )
         if not column:
             raise ValueError("freshness requires 'column'")
         max_lag = self.check_cfg.max_lag_minutes
@@ -43,9 +46,13 @@ class FreshnessCheck(BaseCheck):
         try:
             # Try to normalize to datetime; connectors may return native types
             if hasattr(latest, "tzinfo"):
-                latest_dt = latest if latest.tzinfo else latest.replace(tzinfo=timezone.utc)
+                latest_dt = (
+                    latest if latest.tzinfo else latest.replace(tzinfo=timezone.utc)
+                )
             else:
-                latest_dt = datetime.fromisoformat(str(latest)).replace(tzinfo=timezone.utc)
+                latest_dt = datetime.fromisoformat(str(latest)).replace(
+                    tzinfo=timezone.utc
+                )
         except Exception:
             # As last resort, treat as naive and set UTC
             latest_dt = datetime.fromisoformat(str(latest))
@@ -65,5 +72,5 @@ class FreshnessCheck(BaseCheck):
                 "now_utc": now.isoformat(),
                 "lag_minutes": lag_minutes,
                 "max_lag_minutes": max_lag,
-            }
+            },
         )

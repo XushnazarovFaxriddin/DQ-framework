@@ -30,7 +30,9 @@ class BigQueryConnector(BaseConnector):
         self.client = bigquery.Client()
 
     # ----- SQL rendering -----
-    def render_select_sql(self, q: QueryCfg, *, columns: Optional[List[str]] = None) -> str:
+    def render_select_sql(
+        self, q: QueryCfg, *, columns: Optional[List[str]] = None
+    ) -> str:
         if q.query:
             return q.query
         sel = q.select.strip() if q.select else "*"

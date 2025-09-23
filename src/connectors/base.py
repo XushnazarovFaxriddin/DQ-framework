@@ -1,51 +1,52 @@
-"""
-BaseConnector defines the minimal API each connector must implement.
-"""
+"""Base interface for all connectors."""
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Optional, Any
+from typing import Any, Dict, Iterable, List, Optional
+
 import pandas as pd
 
-from src.compiler.schema import QueryCfg, HashingCfg
+from src.compiler.schema import HashingCfg, QueryCfg
 
 
 class BaseConnector(ABC):
+    """Abstract base class for all connectors."""
+
     engine_name: str = "base"
 
     def __init__(self, uri: str) -> None:
         self.uri = uri
 
-    # ---- SQL rendering helpers ----
     @abstractmethod
-    def render_select_sql(self, q: QueryCfg, *, columns: Optional[List[str]] = None) -> str:
-        """
-        Render a SELECT statement based on:
-          - q.query  (native SQL)   -> return as-is (wrapped if needed)
-          - q.table  (+ optional select) -> SELECT <select|*> FROM <table>
-        Optionally force a column subset via 'columns'.
-        """
-        ...
+    def render_select_sql(
+        self, q: QueryCfg, *, columns: Optional[List[str]] = None
+    ) -> str:
+        """Render a ``SELECT`` statement for the provided :class:`QueryCfg`."""
 
     @abstractmethod
     def render_count_sql(self, inner_sql: str) -> str:
-        """Wrap inner_sql into SELECT COUNT(*) according to dialect."""
-        ...
+        """Wrap ``inner_sql`` into a dialect specific ``SELECT COUNT(*)``."""
 
     @abstractmethod
     def hash_expr(self, cols: Iterable[str], hashing: HashingCfg) -> str:
-        """
-        Return a dialect-specific canonical hash expression over given columns
-        following the requested hashing policy.
-        The output MUST be comparable across engines (same hex-case, same semantics).
-        """
-        ...
-
-    # ---- Data fetch helpers ----
-    @abstractmethod
-    def fetch_df(self, sql: str) -> pd.DataFrame: ...
+        """Return a deterministic hash expression over ``cols``."""
 
     @abstractmethod
-    def fetch_scalar(self, sql: str) -> Any: ...
+    def fetch_df(self, sql: str) -> pd.DataFrame:
+        """Return a :class:`pandas.DataFrame` for ``sql``."""
 
     @abstractmethod
-    def fetch_column(self, sql: str) -> List[Any]: ...
+    def fetch_scalar(self, sql: str) -> Any:
+        """Return a scalar value for ``sql``."""
+
+    @abstractmethod
+    def fetch_column(self, sql: str) -> List[Any]:
+        """Return the first column from ``sql`` as a list."""
+
+    def information_schema_columns(self, table_name: str) -> List[Dict[str, Any]]:
+        """Return information schema metadata when supported."""
+
+        raise NotImplementedError(
+            f"information_schema_columns not implemented for {self.engine_name}"
+        )

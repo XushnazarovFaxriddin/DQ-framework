@@ -8,7 +8,7 @@ SchemaDrift check:
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pandas as pd
 
@@ -16,6 +16,7 @@ from src.checks.base import BaseCheck
 from src.runtime.results import CheckResult
 from src.utils.logger import ContextLogger
 from src.runtime.registry import register_check
+
 
 def _normalize_dtype(dtype_str: str) -> str:
     s = (dtype_str or "").strip().lower()
@@ -25,10 +26,13 @@ def _normalize_dtype(dtype_str: str) -> str:
         "double precision": "float64",
         "timestamp without time zone": "timestamp",
         "timestamp with time zone": "timestamptz",
-        "int8": "bigint", "int4": "int", "int2": "smallint",
+        "int8": "bigint",
+        "int4": "int",
+        "int2": "smallint",
         "numeric": "decimal",
         "bignumeric": "decimal",
-        "float": "float64", "float32": "float64",
+        "float": "float64",
+        "float32": "float64",
         "boolean": "bool",
         "string": "varchar",
         "bytes": "binary",
@@ -52,7 +56,9 @@ class SchemaDriftCheck(BaseCheck):
     def _infer_from_dataframe(self, df: pd.DataFrame) -> List[ColumnSpec]:
         cols: List[ColumnSpec] = []
         for name, dtype in df.dtypes.items():
-            cols.append(ColumnSpec(name=name, dtype=_normalize_dtype(str(dtype)), nullable=None))
+            cols.append(
+                ColumnSpec(name=name, dtype=_normalize_dtype(str(dtype)), nullable=None)
+            )
         return cols
 
     def _infer_from_limit0(self, sql: str, side: str) -> List[ColumnSpec]:
@@ -74,18 +80,25 @@ class SchemaDriftCheck(BaseCheck):
                 if getattr(self.source, "information_schema_columns", None):
                     rows = self.source.information_schema_columns(table_name)
                 else:
-                    return self._infer_from_limit0(f"SELECT * FROM {table_name}", "source")
+                    return self._infer_from_limit0(
+                        f"SELECT * FROM {table_name}", "source"
+                    )
             else:
                 if getattr(self.target, "information_schema_columns", None):
                     rows = self.target.information_schema_columns(table_name)
                 else:
-                    return self._infer_from_limit0(f"SELECT * FROM `{table_name}`", "target")
+                    return self._infer_from_limit0(
+                        f"SELECT * FROM `{table_name}`", "target"
+                    )
             out = []
             for r in rows:
-                out.append(ColumnSpec(
-                    name=r["column_name"],
-                    dtype=_normalize_dtype(r.get("data_type", "")),
-                    nullable=r.get("is_nullable")))
+                out.append(
+                    ColumnSpec(
+                        name=r["column_name"],
+                        dtype=_normalize_dtype(r.get("data_type", "")),
+                        nullable=r.get("is_nullable"),
+                    )
+                )
             return out
         except Exception:
             # Fallback
@@ -121,16 +134,35 @@ class SchemaDriftCheck(BaseCheck):
         nullable_mismatches: List[Tuple[str, Optional[bool], Optional[bool]]] = []
 
         for name in sorted(set(s_map.keys()).intersection(t_map.keys())):
-            s = s_map[name]; t = t_map[name]
+            s = s_map[name]
+            t = t_map[name]
             if _normalize_dtype(s.dtype) != _normalize_dtype(t.dtype):
                 type_mismatches.append((name, s.dtype, t.dtype))
-            if (s.nullable is not None) and (t.nullable is not None) and (s.nullable != t.nullable):
+            if (
+                (s.nullable is not None)
+                and (t.nullable is not None)
+                and (s.nullable != t.nullable)
+            ):
                 nullable_mismatches.append((name, s.nullable, t.nullable))
 
-        status = "PASS" if (not missing_on_target and not extra_on_target and not type_mismatches and not nullable_mismatches) else "FAIL"
-        cl.log("schema_drift.result", status=status,
-               missing_on_target=len(missing_on_target), extra_on_target=len(extra_on_target),
-               type_mismatches=len(type_mismatches), nullable_mismatches=len(nullable_mismatches))
+        status = (
+            "PASS"
+            if not (
+                missing_on_target
+                or extra_on_target
+                or type_mismatches
+                or nullable_mismatches
+            )
+            else "FAIL"
+        )
+        cl.log(
+            "schema_drift.result",
+            status=status,
+            missing_on_target=len(missing_on_target),
+            extra_on_target=len(extra_on_target),
+            type_mismatches=len(type_mismatches),
+            nullable_mismatches=len(nullable_mismatches),
+        )
 
         return CheckResult(
             table=self.table_cfg.name,
@@ -141,5 +173,5 @@ class SchemaDriftCheck(BaseCheck):
                 "extra_on_target": extra_on_target[:50],
                 "type_mismatches": type_mismatches[:50],
                 "nullable_mismatches": nullable_mismatches[:50],
-            }
+            },
         )
