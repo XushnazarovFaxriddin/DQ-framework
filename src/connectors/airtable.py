@@ -1,0 +1,1 @@
+# If you need this connector, you can configure it like other connectors.

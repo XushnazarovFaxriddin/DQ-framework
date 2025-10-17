@@ -18,9 +18,7 @@ from src.runtime.registry import register_check
 @register_check("freshness")
 class FreshnessCheck(BaseCheck):
     def run(self) -> CheckResult:
-        column = getattr(self.check_cfg, "column", None) or getattr(
-            self.check_cfg, "col", None
-        )
+        column = getattr(self.check_cfg, "column", None) or getattr(self.check_cfg, "col", None)
         if not column:
             raise ValueError("freshness requires 'column'")
         max_lag = self.check_cfg.max_lag_minutes
@@ -61,16 +59,18 @@ class FreshnessCheck(BaseCheck):
         lag_minutes = (now - latest_dt).total_seconds() / 60.0
         status = "PASS" if lag_minutes <= float(max_lag) else "FAIL"
 
+        details = {
+            "on": side,
+            "column": column,
+            "latest": latest_dt.isoformat(),
+            "now_utc": now.isoformat(),
+            "lag_minutes": lag_minutes,
+            "max_lag_minutes": max_lag,
+        }
+        details = {k: v for k, v in details.items() if v not in (None, "", [], {})}
         return CheckResult(
             table=self.table_cfg.name,
             check_type="freshness",
             status=status,
-            details={
-                "on": side,
-                "column": column,
-                "latest": latest_dt.isoformat(),
-                "now_utc": now.isoformat(),
-                "lag_minutes": lag_minutes,
-                "max_lag_minutes": max_lag,
-            },
+            details=details,
         )

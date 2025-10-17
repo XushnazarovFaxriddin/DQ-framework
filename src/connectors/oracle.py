@@ -20,7 +20,7 @@ class OracleConnector(BaseConnector):
         super().__init__(uri)
         try:
             self.engine = create_engine(uri, pool_pre_ping=True, future=True)
-        except Exception as exc:  # pragma: no cover - requires runtime driver
+        except Exception as exc:
             raise RuntimeError(f"Failed to initialize Oracle connector: {exc}") from exc
 
     def render_select_sql(

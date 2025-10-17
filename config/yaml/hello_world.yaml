@@ -24,10 +24,6 @@ tables:
     target:
       table: project.dataset.hvtb_parse_apis_info
 
-    join_keys:
-      source: [id, api_id]
-      target: [id, ApiId]
-
     checks:
       - type: row_count
       - type: hash_diff
@@ -42,5 +38,7 @@ tables:
       - type: hash_diff
         include_source: [id, api_id, amount]
         include_target: [id, ApiId, total_amount]
+        order_by_sourse: [id]
+        order_by_target: [id]
 
 

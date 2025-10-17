@@ -17,7 +17,7 @@ class HashingCfg(BaseModel):
     algorithm: str = "double_md5"
     null_token: str = ""
     delimiter: str = "|"
-    case: str = "none"  # none|lower|upper
+    case: str = "upper"  # none|lower|upper
 
     @field_validator("algorithm")
     @classmethod
@@ -118,10 +118,30 @@ class CheckCfg(BaseModel):
 
     exclude: Optional[List[str]] = None
     rules: Optional[List[Dict[str, Any]]] = None
+    column: Optional[str] = None  # e.g., for freshness
+    col: Optional[str] = None  # alias for 'column'
+    on: Optional[str] = None # source|target
     max_lag_minutes: Optional[int] = None
     tolerance_pct: Optional[float] = None
     tolerance_abs: Optional[float] = None
+    join_keys: Optional[Dict[str, List[str]]] = None
     logic: Optional[Any] = None  # Python configs only
+
+    allowed_values: Optional[List[Any]] = None
+    include_values: Optional[List[Any]] = None
+    exclude_values: Optional[List[Any]] = None
+    regex: Optional[str] = None
+    min: Optional[int] = None
+    max: Optional[int] = None
+
+    mode: Optional[str] = None # single|dual
+    sql_source: Optional[str] = None
+    sql_target: Optional[str] = None
+    sql: Optional[str] = None
+    expected_result: Optional[Any] = None
+    compare_mode: Optional[str] = None # equals|less|greater
+    tolerance_time_sec: Optional[int] = None
+    tolerance_time_min: Optional[int] =  None
 
     # ordering
     order_by: Optional[List[str]] = None  # canonical column names (after alignment)
@@ -134,14 +154,12 @@ class TableCfg(BaseModel):
     Per-table config with optional canonical column mapping.
     - dynamic_pattern=True enables wildcard-based expansion handled by the planner.
     - 'column_map' defines canonical columns available for alignment.
-    - 'join_keys' must list aligned pairs: source[i] corresponds to target[i].
     """
 
     name: str
     dynamic_pattern: Optional[bool] = False
     source: QueryCfg
     target: QueryCfg
-    join_keys: Dict[str, List[str]]  # {"source":[...], "target":[...]} same length
     column_map: Optional[Dict[str, ColumnMapEntry]] = None
     checks: List[CheckCfg]
 
@@ -159,7 +177,7 @@ class AlertsCfg(BaseModel):
         - kind: gchat                 # GChat always uses env webhook
           mode: card                  # or text
         - kind: email
-          to: ["jamshid.allayev@virginvoyages.com"]      # if omitted, fallback to env DQ_EMAILS
+          to: ["user@example.com"]      # if omitted, fallback to env DQ_EMAILS
     """
 
     routes: List[Dict[str, Any]] = Field(default_factory=list)

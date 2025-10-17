@@ -65,9 +65,6 @@ tables:
       table: /data/customers.csv
     target:
       table: /data/customers.csv
-    join_keys:
-      source: [id]
-      target: [id]
     checks:
       - type: row_count
         order_by: [id]
@@ -79,7 +76,7 @@ tables:
 
 ```python
 def build(vars: dict) -> dict:
-    env = vars.get("env", "dev")
+    env = vars.get("env", "cert")
     base_path = f"/mnt/{env}"
     return {
         "connections": {
@@ -91,10 +88,10 @@ def build(vars: dict) -> dict:
                 "name": "orders",
                 "source": {"table": f"{base_path}/orders_{env}.csv"},
                 "target": {"table": f"{base_path}/orders_{env}.csv"},
-                "join_keys": {"source": ["order_id"], "target": ["order_id"]},
                 "checks": [
                     {
                         "type": "join_rowdiff",
+                        "join_keys": {"source": ["order_id"], "target": ["order_id"]},
                         "include": ["order_id", "status", "total"],
                         "order_by": ["order_id"],
                     }

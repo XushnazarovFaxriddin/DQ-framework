@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
+from runtime.registry import register_all
 from src.checks.join_rowdiff import JoinRowDiffCheck
-from src.checks.registry import register_all_checks
 from src.compiler.normalizer import normalize_config
 from src.compiler.planner import build_plan
 from src.compiler.schema import ConfigModel
@@ -32,7 +32,6 @@ def _build_config(csv_path: str) -> ConfigModel:
                 "name": "demo",
                 "source": {"table": csv_path},
                 "target": {"table": csv_path},
-                "join_keys": {"source": ["id"], "target": ["id"]},
                 "checks": [
                     {"type": "row_count"},
                 ],
@@ -75,7 +74,7 @@ def test_build_plan_respects_partition_range(sample_csv, monkeypatch):
 
 
 def test_plan_run_with_csv_connectors(sample_csv, monkeypatch):
-    register_all_checks()
+    register_all()
     model = _build_config(sample_csv)
     cfg, runtime_vars = normalize_config(
         model,
@@ -103,10 +102,10 @@ def test_join_rowdiff_applies_ordering(sample_csv):
                 "name": "demo",
                 "source": {"table": sample_csv},
                 "target": {"table": sample_csv},
-                "join_keys": {"source": ["id"], "target": ["id"]},
                 "checks": [
                     {
                         "type": "join_rowdiff",
+                        "join_keys": {"source": ["id"], "target": ["id"]},
                         "include": ["name", "score"],
                         "order_by": ["name"],
                     }

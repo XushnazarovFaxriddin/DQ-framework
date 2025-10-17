@@ -1,0 +1,81 @@
+connections:
+  source_env_var: PROD_MSSQL_REPLICA_CONN_STR
+  source_type: mssql
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+# alerts:
+#   routes:
+#     - kind: email
+#       to:
+#         - user@example.com
+#     - kind: gchat
+#       mode: card   # or "text"
+#       # webhook taken from env var GCHAT_DQ_WEBHOOK
+
+tables:
+  - name: Person_Appraisal_CHECK    
+    # canonical mapping for alignment
+    # column_map:
+    #   start_date: { source: "[Sart Date]",   target: "Sart_Date" }
+    #   end_date:   { source: "EndDate",    target: "`End Date`" }
+    source:
+      table: MXP.dbo.Person_Appraisal
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_mxp_person_appraisal
+
+    checks:
+      - type: row_count
+
+      # - type: schema_drift
+      #   case_sensitive: false
+      
+      # - type: freshness
+      #   column: LAST_CHANGED        # required
+      #   max_lag_minutes: 60         # required
+      
+      # - type: freshness
+      #   column: last_changed        # required
+      #   on: target                  # default: source
+      #   max_lag_minutes: 60         # required
+      
+      # - type: aggregations
+      #   tolerance_abs: 10             # absolute tolerance: allow up to 10 units difference
+      #   tolerance_pct: 1.0            # percentage tolerance: allow up to 1% difference
+      #   rules:          
+      #     - method: count             # Row count         
+          
+      #     - method: sum               # Sum of <column>
+      #       column: appraiser_status_id           
+          
+      #     - method: avg               # Average <column> per rows
+      #       column: appraiser_status_id
+      #       tolerance_abs: 0.5          
+          
+      #     - method: min               # Minimum and maximum <column>
+      #       column: LAST_CHANGED
+          
+      #     - method: max
+      #       col: LAST_CHANGED
+          
+      #     - method: distinct_count    # Distinct count <column>
+      #       source_col: person_id
+      #       target_column: PERSON_ID
+
+      # - type: hash_diff
+      #   include_source: [PERSON_APPRAISAL_ID, PERSON_ID, APPRAISER_STATUS_ID, LAST_CHANGED]
+      #   include_target: [PERSON_APPRAISAL_ID, PERSON_ID, APPRAISER_STATUS_ID, LAST_CHANGED]
+      #   tolerance_pct: 10           # allow up to 10% difference
+      #   order_by: [PERSON_APPRAISAL_ID]
+
+      - type: join_rowdiff
+        join_keys:
+          source: ["PERSON_APPRAISAL_ID"]
+          target: ["PERSON_APPRAISAL_ID"]
+        include_source: [PERSON_APPRAISAL_ID, PERSON_ID, APPRAISER_STATUS_ID, LAST_CHANGED]
+        include_target: [PERSON_APPRAISAL_ID, PERSON_ID, APPRAISER_STATUS_ID, LAST_CHANGED]
+        order_by: [PERSON_APPRAISAL_ID]
+
+
+# run example:
+# python -m  src.main --filetype yaml --config-file mxp_prod_replica_test --env prod --run_label testing

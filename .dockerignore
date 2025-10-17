@@ -1,0 +1,5 @@
+docs/
+tests/
+.env.example
+README.md
+.gitignore

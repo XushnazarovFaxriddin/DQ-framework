@@ -58,58 +58,49 @@ class BigQueryConnector(BaseConnector):
         cols = list(cols)
         delim = hashing.delimiter.replace("'", r"\'")  # escape single quotes
 
-        def md5_hex(s: str) -> str:
-            # MD5 requires BYTES; TO_HEX returns uppercase HEX; we LOWER it for consistency.
-            return f"LOWER(TO_HEX(MD5(TO_BYTES({s}))))"
+        def md5_hex(expr: str) -> str:
+            # BigQuery Standard SQL: CAST(... AS BYTES) is portable and supported
+            return f"LOWER(TO_HEX(MD5(CAST({expr} AS BYTES))))"
 
-        def sha256_hex(s: str) -> str:
-            return f"LOWER(TO_HEX(SHA256(TO_BYTES({s}))))"
+        def sha256_hex(expr: str) -> str:
+            return f"LOWER(TO_HEX(SHA256(CAST({expr} AS BYTES))))"
 
         if hashing.algorithm == "double_md5":
-            inner = []
-            for c in cols:
-                tok = self._token_expr(c, hashing)
-                inner.append(md5_hex(tok))
-            concat_args = []
-            for i, e in enumerate(inner):
-                if i > 0:
-                    concat_args.append(f"'{delim}'")
-                concat_args.append(e)
-            chain = "CONCAT(" + ", ".join(concat_args) + ")"
-            return md5_hex(chain)
+            inner_hashes = [
+                md5_hex(self._token_expr(c, hashing)) for c in cols
+            ]
+            concat = "CONCAT(" + ", ".join(
+                [f"'{delim}'" if i else h for i, h in enumerate(inner_hashes) for h in ([h] if i == 0 else [f"'{delim}'", h])]
+            ) + ")"
+            return md5_hex(concat)
 
         if hashing.algorithm == "md5_row":
-            tokens = []
-            for i, c in enumerate(cols):
-                tok = self._token_expr(c, hashing)
-                if i > 0:
-                    tokens.append(f"'{delim}'")
-                tokens.append(tok)
-            chain = "CONCAT(" + ", ".join(tokens) + ")"
-            return md5_hex(chain)
+            tokens = [
+                self._token_expr(c, hashing) for c in cols
+            ]
+            concat = "CONCAT(" + ", ".join(
+                [f"'{delim}'" if i else t for i, t in enumerate(tokens) for t in ([t] if i == 0 else [f"'{delim}'", t])]
+            ) + ")"
+            return md5_hex(concat)
 
         if hashing.algorithm == "sha256_row":
-            tokens = []
-            for i, c in enumerate(cols):
-                tok = self._token_expr(c, hashing)
-                if i > 0:
-                    tokens.append(f"'{delim}'")
-                tokens.append(tok)
-            chain = "CONCAT(" + ", ".join(tokens) + ")"
-            return sha256_hex(chain)
+            tokens = [
+                self._token_expr(c, hashing) for c in cols
+            ]
+            concat = "CONCAT(" + ", ".join(
+                [f"'{delim}'" if i else t for i, t in enumerate(tokens) for t in ([t] if i == 0 else [f"'{delim}'", t])]
+            ) + ")"
+            return sha256_hex(concat)
 
-        # Fallback to double_md5
-        inner = []
-        for c in cols:
-            tok = self._token_expr(c, hashing)
-            inner.append(md5_hex(tok))
-        concat_args = []
-        for i, e in enumerate(inner):
-            if i > 0:
-                concat_args.append(f"'{delim}'")
-            concat_args.append(e)
-        chain = "CONCAT(" + ", ".join(concat_args) + ")"
-        return md5_hex(chain)
+        # fallback: double_md5
+        inner_hashes = [
+            md5_hex(self._token_expr(c, hashing)) for c in cols
+        ]
+        concat = "CONCAT(" + ", ".join(
+            [f"'{delim}'" if i else h for i, h in enumerate(inner_hashes) for h in ([h] if i == 0 else [f"'{delim}'", h])]
+        ) + ")"
+        return md5_hex(concat)
+
 
     # ----- Fetch helpers -----
     def fetch_df(self, sql: str) -> pd.DataFrame:

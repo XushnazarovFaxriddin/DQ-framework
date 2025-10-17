@@ -1,0 +1,39 @@
+connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+# alerts:
+#   routes:
+#     - kind: gchat
+#       mode: text # card or text
+#     # - kind: email
+#     #   to: "user@example.com"
+
+tables:
+  - name: RES_HEADER_VALIDATION    
+    source:
+      table: SEAWARE.RES_HEADER    
+      # query: |
+      #   SELECT * FROM SEAWARE.RES_HEADER 
+      #   WHERE LAST_UPDATED_AT < SYSDATE - ({{hours_ago}}/24)
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header
+    checks:
+      - type: domain
+        on: source
+        column: SOURCE_CODE
+        exclude_values: [null]
+        tolerance_abs: 5
+        tolerance_pct: 0.5
+      - type: custom_sql
+        mode: single
+        on: target
+        sql: "SELECT count(1) as cnt FROM SEAWARE.RES_HEADER"
+        expected_result: 2109869
+        tolerance_abs: 5
+
+
+# run example:
+# python -m  src.main --filetype yaml --config-file sw_res_header_test --env prod --run_label testing 

@@ -12,7 +12,7 @@ from typing import Dict, List, Tuple
 
 from src.checks.base import BaseCheck
 from src.runtime.results import CheckResult
-from src.utils.sql import build_aligned_select, wrap_order_by, sanitize_identifier
+from src.utils.sql import build_aligned_select, wrap_order_by, sanitize_identifier, wrap_order_by_limit
 from src.runtime.registry import register_check
 
 
@@ -94,8 +94,8 @@ class HashDiffCheck(BaseCheck):
                 sanitize_identifier(col) for col in self.check_cfg.order_by
             ]
 
-        s_sql = wrap_order_by(s_sql, order_by_source)
-        t_sql = wrap_order_by(t_sql, order_by_target)
+        s_sql = wrap_order_by_limit(s_sql, order_by_source, None, engine=self.source.engine_name)
+        t_sql = wrap_order_by_limit(t_sql, order_by_target, None, engine=self.target.engine_name)
 
         # Hash expressions over canonical column names (same on both sides)
         s_hash_expr = self.source.hash_expr(canonical, self.hashing)
@@ -111,16 +111,23 @@ class HashDiffCheck(BaseCheck):
         extra = list(t_hashes - s_hashes)
 
         status = "PASS" if not missing and not extra else "FAIL"
+        # Filter details dict to keep only non-empty/non-null fields
+        details = {
+            k: v
+            for k, v in {
+            "algorithm": self.hashing.algorithm,
+            "canonical": canonical,
+            "missing_count": len(missing),
+            "extra_count": len(extra),
+            # "missing_sample": missing[:10],
+            # "extra_sample": extra[:10],
+            }.items()
+            if v not in (None, "", [], {})
+        }
+
         return CheckResult(
             table=self.table_cfg.name,
             check_type="hash_diff",
             status=status,
-            details={
-                "algorithm": self.hashing.algorithm,
-                "canonical": canonical,
-                "missing_count": len(missing),
-                "extra_count": len(extra),
-                "missing_sample": missing[:10],
-                "extra_sample": extra[:10],
-            },
+            details=details,
         )

@@ -3,7 +3,11 @@ Global registries for connectors, checks, and alert backends.
 Provides decorator helpers to register plugins in a uniform way.
 """
 
+import importlib
+import pkgutil
 from typing import Callable, Dict, Optional, Type, Any
+
+from src.utils.logger import log
 
 # Registries
 CONNECTORS: Dict[str, Type] = {}  # key: canonical engine name (e.g., "postgres")
@@ -46,6 +50,74 @@ def register_alert(name: str):
         return fn
 
     return _wrap
+
+# Auto-import utilities
+def _import_all_submodules(package: str, target: str) -> None:
+    """
+    Import all submodules under a given package path.
+    Example: package="src.checks", target="checks"
+    """
+    try:
+        package_obj = importlib.import_module(package)
+    except Exception as e:
+        log(f"{target}.registry.import.error", level="ERROR", package=package, error=str(e))
+        return
+
+    package_path = getattr(package_obj, "__path__", None)
+    if not package_path:
+        return
+
+    for _, name, ispkg in pkgutil.iter_modules(package_path):
+        if name.startswith("_"):
+            continue  # skip private modules
+        module_path = f"{package}.{name}"
+        try:
+            importlib.import_module(module_path)
+            log(f"{target}.registry.import.ok", module=module_path)
+            if ispkg:
+                _import_all_submodules(module_path, target)
+        except Exception as e:
+            log(f"{target}.registry.import.error", level="ERROR", module=module_path, error=str(e))
+
+
+# Public registry loaders
+def register_all_connectors() -> Dict[str, str]:
+    log("connectors.registry.start")
+    _import_all_submodules("src.connectors", "connectors")
+    summary = {k: f"{v.__module__}.{v.__qualname__}" for k, v in CONNECTORS.items()}
+    log("connectors.registry.done", registered=len(summary))
+    return summary
+
+
+def register_all_checks() -> Dict[str, str]:
+    log("checks.registry.start")
+    _import_all_submodules("src.checks", "checks")
+    summary = {k: f"{v.__module__}.{v.__qualname__}" for k, v in CHECKS.items()}
+    log("checks.registry.done", registered=len(summary))
+    return summary
+
+def register_all_alerts() -> Dict[str, str]:
+    log("alerts.registry.start")
+    _import_all_submodules("src.alerts", "alerts")
+    summary = {k: getattr(v, "__name__", str(v)) for k, v in ALERTS.items()}
+    log("alerts.registry.done", registered=len(summary))
+    return summary
+
+def register_all() -> Dict[str, Dict[str, str]]:
+    log("registry.all.start")
+    connectors = register_all_connectors()
+    checks = register_all_checks()
+    alerts = register_all_alerts()
+    summary = {
+        "connectors": connectors,
+        "checks": checks,
+        "alerts": alerts,
+    }
+    log("registry.all.done",
+        connectors=len(connectors),
+        checks=len(checks),
+        alerts=len(alerts))
+    return summary
 
 
 # ---- Query helpers ----

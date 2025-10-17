@@ -1,0 +1,109 @@
+connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+
+alerts:
+  routes:
+    - kind: gchat
+      mode: card # card or text
+      # send_all_checks: true  # send all checks or only fails to alert
+
+tables:
+  - name: CLIENT_VALIDATION    
+    source:
+      table: SEAWARE.CLIENT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_client
+    checks:
+      - type: aggregations
+        tolerance_abs: 10             # absolute tolerance: allow up to 10 units difference
+        # tolerance_pct: 5.0          # percentage tolerance: allow up to 1% difference
+        rules:
+          - method: count    
+            source_col: CLIENT_ID
+            target_column: client_id
+          - method: distinct_count    # Distinct count <column>
+            source_col: CLIENT_ID
+            target_column: client_id
+
+###########################################################################
+
+  - name: RES_GUEST_VALIDATION    
+    source:
+      table: SEAWARE.RES_GUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_guest
+    checks:
+      - type: aggregations
+        tolerance_abs: 10             # absolute tolerance: allow up to 10 units difference
+        tolerance_pct: 5.0          # percentage tolerance: allow up to 1% difference
+        rules:
+          - method: count    # Distinct count <column>
+            source_col: GUEST_ID
+            target_column: guest_id
+          - method: distinct_count    # Distinct count <column>
+            source_col: GUEST_ID
+            target_column: guest_id
+
+##########################################################################
+
+  - name: RES_HEADER_VALIDATION    
+    source:
+      table: SEAWARE.RES_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header
+    checks:
+      - type: aggregations
+        tolerance_abs: 10             # absolute tolerance: allow up to 10 units difference
+        tolerance_pct: 5.0          # percentage tolerance: allow up to 1% difference
+        rules:
+          - method: count    # Distinct count <column>
+            source_col: RES_ID
+            target_column: res_id
+          - method: distinct_count    # Distinct count <column>
+            source_col: RES_ID
+            target_column: res_id
+
+########################################################################
+
+  - name: RES_INVOICE_ITEM_VALIDATION    
+    source:
+      table: SEAWARE.RES_INVOICE_ITEM
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_invoice_item
+    checks:
+      - type: aggregations
+        tolerance_abs: 10             # absolute tolerance: allow up to 10 units difference
+        tolerance_pct: 5.0          # percentage tolerance: allow up to 1% difference
+        rules:
+          - method: count    
+            source_col: RES_INVOICE_ITEM_ID
+            target_column: res_invoice_item_id
+          - method: distinct_count    # Distinct count <column>
+            source_col: "RES_INVOICE_ITEM_ID" # concat columns
+            target_column: "res_invoice_item_id"
+
+########################################################################
+
+  - name: RES_INVOICE_CANC_VALIDATION    
+    source:
+      table: SEAWARE.RES_INVOICE_CANC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_invoice_canc
+    checks:
+      - type: aggregations
+        tolerance_abs: 10             # absolute tolerance: allow up to 10 units difference
+        tolerance_pct: 5.0          # percentage tolerance: allow up to 1% difference
+        rules:
+          - method: count   
+            source_col: RES_INVOICE_ITEM_ID
+            target_column: res_invoice_item_id
+          - method: distinct_count    # Distinct count <column>
+            source_col: RES_INVOICE_ITEM_ID
+            target_column: res_invoice_item_id
+
+# run example:
+# python -m  src.main --filetype yaml --config-file sw_oracle_vs_bq --env prod --run_label oracle_tables_testing 

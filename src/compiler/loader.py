@@ -85,7 +85,12 @@ def _load_py(path: str, vars_map: Dict[str, Any]) -> Dict[str, Any]:
 
 def load_config(args: Any) -> Dict[str, Any]:
     path = args.config_file
+    if "/" not in path and "\\" not in path:
+        path = f"config/{args.filetype}/{path}.{args.filetype}"
+    current_path = os.getcwd()
+    path = os.path.join(current_path, path)
     if not os.path.exists(path):
+        print(f"Config file not found: {path}")
         raise FileNotFoundError(f"Config file not found: {path}")
 
     if args.filetype == "yaml":

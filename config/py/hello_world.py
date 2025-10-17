@@ -7,7 +7,6 @@ def build(vars):
                 "name": "ORDERS",
                 "source": {"table": "public.orders"},
                 "target": {"table": "project.dataset.orders"},
-                "join_keys": {"source": ["id"], "target": ["id"]},
                 "checks": [
                     {
                         "type": "hash_diff",

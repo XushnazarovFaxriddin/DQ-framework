@@ -246,8 +246,6 @@ def _run_checkpoint(
 
 
 register_check("ge_expectations")
-
-
 class GECheckAdapter(BaseCheck):
     """
     Great Expectations adapter.

@@ -67,7 +67,7 @@ def _canonical_engine_from_uri(uri: str, declared: Optional[str] = None) -> str:
 def build_connector(uri: str, declared_engine: Optional[str] = None):
     engine = _canonical_engine_from_uri(uri, declared_engine)
     if engine not in CONNECTORS:
-        raise ValueError(f"No registered connector for engine '{engine}'")
+        raise ValueError(f"No registered connector for engine '{engine}', registered: {list(CONNECTORS)}")
     connector_cls = CONNECTORS[engine]
     connector = connector_cls(uri)
     return connector, engine

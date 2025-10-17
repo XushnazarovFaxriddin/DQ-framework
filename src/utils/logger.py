@@ -29,7 +29,7 @@ class JsonFormatter(logging.Formatter):
         if hasattr(record, "fields") and isinstance(record.fields, dict):
             log_record.update(record.fields)
 
-        return json.dumps(log_record, ensure_ascii=False)
+        return json.dumps(log_record, ensure_ascii=False, default=str)
 
 
 # Create a global logger instance

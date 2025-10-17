@@ -74,7 +74,7 @@ def _render_query_cfg(q: QueryCfg, ctx: Dict[str, Any]) -> QueryCfg:
         select=_render_text(q.select, ctx) if q.select else None,
         query=_render_text(q.query, ctx) if q.query else None,
         order_by=q.order_by,
-        filters=q.filters,
+        filters=_render_text(q.filters, ctx) if q.filters else None,
     )
 
 
@@ -198,7 +198,7 @@ class Plan:
                 log(
                     "table.submitted",
                     table=tu.table_cfg.name,
-                    partition=_part_dict(tu.partition),
+                    # partition=_part_dict(tu.partition),
                 )
 
             for fut in as_completed(fut_to_tu):
@@ -221,7 +221,7 @@ class Plan:
                             details={
                                 "error": "table_timeout",
                                 "timeout_sec": table_timeout_sec,
-                                "partition": _part_dict(tu.partition),
+                                # "partition": _part_dict(tu.partition),
                             },
                         )
                     )
@@ -230,7 +230,7 @@ class Plan:
                         level="ERROR",
                         table=tu.table_cfg.name,
                         timeout_sec=table_timeout_sec,
-                        partition=_part_dict(tu.partition),
+                        # partition=_part_dict(tu.partition),
                     )
                 except Exception as e:
                     # Mark as failed but let others continue
@@ -241,7 +241,7 @@ class Plan:
                             status="FAIL",
                             details={
                                 "error": str(e),
-                                "partition": _part_dict(tu.partition),
+                                # "partition": _part_dict(tu.partition),
                             },
                         )
                     )
@@ -250,7 +250,7 @@ class Plan:
                         level="ERROR",
                         table=tu.table_cfg.name,
                         error=str(e),
-                        partition=_part_dict(tu.partition),
+                        # partition=_part_dict(tu.partition),
                     )
 
         # Aggregate overall
@@ -295,7 +295,10 @@ class Plan:
         Run all checks for a given table unit.
         Optionally parallelize checks within the table using a per-table thread pool.
         """
-        cl = ContextLogger(table=tu.table_cfg.name, partition=_part_dict(tu.partition))
+        cl = ContextLogger(
+            table=tu.table_cfg.name, 
+            # partition=_part_dict(tu.partition)
+        )
         cl.log("table.start")
 
         # Prepare runner partials for each check
@@ -423,30 +426,30 @@ class Plan:
                     details={"error": str(e)},
                 )
 
-            # With timeout, run the runner in a mini thread pool
-            with ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    _safe_run_callable,
-                    runner_callable,
-                    table.name,
-                    chk_cfg.type,
-                    cl,
-                )
-            try:
-                return future.result(timeout=timeout_sec)
-            except TimeoutError:
-                cl.log(
-                    "check.timeout",
-                    level="ERROR",
-                    check_type=chk_cfg.type,
-                    timeout_sec=timeout_sec,
-                )
-                return CheckResult(
-                    table=table.name,
-                    check_type=chk_cfg.type,
-                    status="FAIL",
-                    details={"error": "check_timeout", "timeout_sec": timeout_sec},
-                )
+        # With timeout, run the runner in a mini thread pool
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(
+                _safe_run_callable,
+                runner_callable,
+                table.name,
+                chk_cfg.type,
+                cl,
+            )
+        try:
+            return future.result(timeout=timeout_sec)
+        except TimeoutError:
+            cl.log(
+                "check.timeout",
+                level="ERROR",
+                check_type=chk_cfg.type,
+                timeout_sec=timeout_sec,
+            )
+            return CheckResult(
+                table=table.name,
+                check_type=chk_cfg.type,
+                status="FAIL",
+                details={"error": "check_timeout", "timeout_sec": timeout_sec},
+            )
 
 
 # ----------------------------
@@ -526,6 +529,7 @@ def build_plan(cfg: ConfigModel, vars_map: Dict[str, Any]) -> Plan:
                 "run_label": vars_map.get("run_label"),
                 "partition_start_iso": w.start.isoformat(),
                 "partition_end_iso": w.end.isoformat(),
+                **vars_map,
             }
             # Render source/target
             ts = _render_query_cfg(t.source, ctx)
@@ -536,7 +540,6 @@ def build_plan(cfg: ConfigModel, vars_map: Dict[str, Any]) -> Plan:
                 dynamic_pattern=t.dynamic_pattern,
                 source=ts,
                 target=tt,
-                join_keys=t.join_keys,
                 column_map=t.column_map,
                 checks=t.checks,
             )

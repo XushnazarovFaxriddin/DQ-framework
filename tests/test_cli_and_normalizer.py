@@ -25,11 +25,9 @@ def base_config_dict(tmp_path):
                 "name": "demo",
                 "source": {"table": "demo_table"},
                 "target": {"table": "demo_table"},
-                "join_keys": {"source": ["id"], "target": ["id"]},
                 "checks": [
                     {
-                        "type": "row_count",
-                        "order_by": ["id"],
+                        "type": "row_count"
                     }
                 ],
             }

@@ -1,0 +1,66 @@
+connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+alerts:
+  routes:
+    - kind: gchat
+      mode: card # card or text or markdown
+
+tables:
+  - name: RES_HEADER_VALIDATION
+    source:
+      table: SEAWARE.RES_HEADER
+      # query: |
+      #   SELECT * FROM SEAWARE.RES_HEADER
+      #   WHERE LAST_UPDATED_AT < SYSDATE - ({{hours_ago}}/24)
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header
+    checks:
+      - type: aggregations
+        tolerance_abs: 10             # absolute tolerance: allow up to 10 units or 10 minutes difference
+        tolerance_pct: 5.0 # percentage tolerance: allow up to 5% difference
+        rules:
+          - method: count
+            source_col: RES_ID
+            target_column: res_id
+          - method: distinct_count # Distinct count <column>
+            source_col: "RES_ID"
+            target_column: "res_id"
+          - method: max
+            source_col: "RES_INIT_DATE"
+            target_col: "res_init_date"
+          - method: max
+            source_col: "SAIL_DATE_FROM"
+            target_col: "sail_date_from"
+          - method: max
+            source_col: "SAIL_DATE_TO"
+            target_col: "sail_date_to"
+          - method: max
+            source_col: "LAST_UPDATED_AT"
+            target_col: "last_updated_at"
+          - method: max
+            source_col: "LAST_PAYMENT_EXT_DATE"
+            target_col: "last_payment_ext_date"
+          - method: max
+            source_col: "ORIGINAL_INIT_DATE"
+            target_col: "original_init_date"
+          - method: max
+            source_col: "CONFIRMATION_DATE"
+            target_col: "confirmation_date"
+
+      # - type: schema_drift
+      #   case_sensitive: false
+
+      # - type: freshness
+      #   column: LAST_CHANGED        # required
+      #   max_lag_minutes: 60         # required
+
+      # - type: domain
+      #   on: source
+      #   column: AGENT_ID
+      #   exclude_values: [True]
+# run example:
+# python -m  src.main --filetype yaml --config-file sw_res_header_test --vars=hours_ago=2 --env prod --run_label testing

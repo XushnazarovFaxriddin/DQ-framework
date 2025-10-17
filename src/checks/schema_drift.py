@@ -1,10 +1,9 @@
 """
-SchemaDrift check:
+SchemaDrift check (dynamic + case-sensitive option):
 - Compares source and target schemas: column presence, order (optional), data types, and (best-effort) nullability.
-- For table-based sources we try to query information_schema; for arbitrary queries we fallback to LIMIT 0 approach.
-- Notes:
-  * Nullability inference via LIMIT 0 is not reliable; use information_schema when possible (table=...).
-  * dtype normalization is engine-agnostic (string names are lowercased and simplified).
+- If check_cfg.expected_columns is provided, validate against those explicitly.
+- Otherwise, only compare source vs target differences.
+- Column name comparison is case-insensitive by default, but can be set to case-sensitive.
 """
 
 from dataclasses import dataclass
@@ -20,7 +19,6 @@ from src.runtime.registry import register_check
 
 def _normalize_dtype(dtype_str: str) -> str:
     s = (dtype_str or "").strip().lower()
-    # Basic normalization across engines and pandas dtypes
     replacements = {
         "character varying": "varchar",
         "double precision": "float64",
@@ -54,124 +52,109 @@ class ColumnSpec:
 @register_check("schema_drift")
 class SchemaDriftCheck(BaseCheck):
     def _infer_from_dataframe(self, df: pd.DataFrame) -> List[ColumnSpec]:
-        cols: List[ColumnSpec] = []
-        for name, dtype in df.dtypes.items():
-            cols.append(
-                ColumnSpec(name=name, dtype=_normalize_dtype(str(dtype)), nullable=None)
-            )
-        return cols
+        return [ColumnSpec(name=name, dtype=_normalize_dtype(str(dtype)), nullable=None) for name, dtype in df.dtypes.items()]
 
     def _infer_from_limit0(self, sql: str, side: str) -> List[ColumnSpec]:
-        # SELECT * FROM (sql) q WHERE 1=0 OR LIMIT 0 (engine-specific)
-        # We'll default to LIMIT 0 for simplicity; connectors can optimize as needed.
-        if side == "source":
-            q = f"SELECT * FROM ({sql}) q LIMIT 0"
-            df = self.source.fetch_df(q)
-        else:
-            q = f"SELECT * FROM ({sql}) q LIMIT 0"
-            df = self.target.fetch_df(q)
+        q = f"SELECT * FROM ({sql}) q WHERE 1=0"
+        df = self.source.fetch_df(q) if side == "source" else self.target.fetch_df(q)
         return self._infer_from_dataframe(df)
 
     def _infer_table_schema(self, table_name: str, side: str) -> List[ColumnSpec]:
-        # Best-effort via information_schema for Postgres/BigQuery.
-        # If connector doesn't support, fallback to LIMIT 0.
         try:
-            if side == "source":
-                if getattr(self.source, "information_schema_columns", None):
-                    rows = self.source.information_schema_columns(table_name)
-                else:
-                    return self._infer_from_limit0(
-                        f"SELECT * FROM {table_name}", "source"
-                    )
-            else:
-                if getattr(self.target, "information_schema_columns", None):
-                    rows = self.target.information_schema_columns(table_name)
-                else:
-                    return self._infer_from_limit0(
-                        f"SELECT * FROM `{table_name}`", "target"
-                    )
-            out = []
-            for r in rows:
-                out.append(
+            rows = None
+            if side == "source" and getattr(self.source, "information_schema_columns", None):
+                rows = self.source.information_schema_columns(table_name)
+            elif side == "target" and getattr(self.target, "information_schema_columns", None):
+                rows = self.target.information_schema_columns(table_name)
+
+            if rows is not None:
+                return [
                     ColumnSpec(
                         name=r["column_name"],
                         dtype=_normalize_dtype(r.get("data_type", "")),
                         nullable=r.get("is_nullable"),
                     )
-                )
-            return out
+                    for r in rows
+                ]
+
+            return self._infer_from_limit0(f"SELECT * FROM {table_name}", side)
         except Exception:
-            # Fallback
             return self._infer_from_limit0(f"SELECT * FROM {table_name}", side)
 
     def _get_schema(self, side: str) -> List[ColumnSpec]:
-        if side == "source":
-            qcfg = self.table_cfg.source
-            if qcfg.table and not qcfg.query:
-                return self._infer_table_schema(qcfg.table, "source")
-            sql = self.source.render_select_sql(qcfg)
-            return self._infer_from_limit0(sql, "source")
-        else:
-            qcfg = self.table_cfg.target
-            if qcfg.table and not qcfg.query:
-                return self._infer_table_schema(qcfg.table, "target")
-            sql = self.target.render_select_sql(qcfg)
-            return self._infer_from_limit0(sql, "target")
+        qcfg = self.table_cfg.source if side == "source" else self.table_cfg.target
+        if qcfg.table and not qcfg.query:
+            return self._infer_table_schema(qcfg.table, side)
+        sql = self.source.render_select_sql(qcfg) if side == "source" else self.target.render_select_sql(qcfg)
+        return self._infer_from_limit0(sql, side)
 
     def run(self) -> CheckResult:
         cl = ContextLogger(table=self.table_cfg.name, check="schema_drift")
+
+        case_sensitive = getattr(self.check_cfg, "case_sensitive", False)
+
         src_schema = self._get_schema("source")
         tgt_schema = self._get_schema("target")
 
-        # Build maps by name
-        s_map = {c.name: c for c in src_schema}
-        t_map = {c.name: c for c in tgt_schema}
+        # normalize keys based on case sensitivity
+        def _key(name: str) -> str:
+            return name if case_sensitive else name.lower()
 
-        missing_on_target = [c.name for c in src_schema if c.name not in t_map]
-        extra_on_target = [c.name for c in tgt_schema if c.name not in s_map]
+        s_map = {_key(c.name): c for c in src_schema}
+        t_map = {_key(c.name): c for c in tgt_schema}
+
+        missing_on_target = [c.name for c in src_schema if _key(c.name) not in t_map]
+        extra_on_target = [c.name for c in tgt_schema if _key(c.name) not in s_map]
 
         type_mismatches: List[Tuple[str, str, str]] = []
         nullable_mismatches: List[Tuple[str, Optional[bool], Optional[bool]]] = []
 
-        for name in sorted(set(s_map.keys()).intersection(t_map.keys())):
-            s = s_map[name]
-            t = t_map[name]
+        for key in sorted(set(s_map.keys()).intersection(t_map.keys())):
+            s = s_map[key]
+            t = t_map[key]
             if _normalize_dtype(s.dtype) != _normalize_dtype(t.dtype):
-                type_mismatches.append((name, s.dtype, t.dtype))
-            if (
-                (s.nullable is not None)
-                and (t.nullable is not None)
-                and (s.nullable != t.nullable)
-            ):
-                nullable_mismatches.append((name, s.nullable, t.nullable))
+                type_mismatches.append((s.name, s.dtype, t.dtype))
+            if (s.nullable is not None) and (t.nullable is not None) and (s.nullable != t.nullable):
+                nullable_mismatches.append((s.name, s.nullable, t.nullable))
 
-        status = (
-            "PASS"
-            if not (
-                missing_on_target
-                or extra_on_target
-                or type_mismatches
-                or nullable_mismatches
+        # Extra validation if expected_columns is provided
+        expected_mismatches: List[str] = []
+        if getattr(self.check_cfg, "expected_columns", None):
+            expected_cols = set(
+                [_key(c) for c in self.check_cfg.expected_columns]
             )
-            else "FAIL"
-        )
+            for col in expected_cols:
+                if col not in s_map or col not in t_map:
+                    expected_mismatches.append(col)
+
+        status = "PASS"
+        if missing_on_target or extra_on_target or type_mismatches or nullable_mismatches or expected_mismatches:
+            status = "FAIL"
+
         cl.log(
             "schema_drift.result",
             status=status,
+            case_sensitive=case_sensitive,
             missing_on_target=len(missing_on_target),
             extra_on_target=len(extra_on_target),
             type_mismatches=len(type_mismatches),
             nullable_mismatches=len(nullable_mismatches),
+            expected_mismatches=len(expected_mismatches),
         )
+
+        details = {
+            "case_sensitive": case_sensitive,
+            "missing_on_target": missing_on_target[:1000],
+            "extra_on_target": extra_on_target[:1000],
+            #"type_mismatches": type_mismatches[:1000],
+            "nullable_mismatches": nullable_mismatches[:1000],
+            "expected_mismatches": expected_mismatches[:1000],
+        }
+        details = {k: v for k, v in details.items() if v not in (None, "", [], {})}
 
         return CheckResult(
             table=self.table_cfg.name,
             check_type="schema_drift",
             status=status,
-            details={
-                "missing_on_target": missing_on_target[:50],
-                "extra_on_target": extra_on_target[:50],
-                "type_mismatches": type_mismatches[:50],
-                "nullable_mismatches": nullable_mismatches[:50],
-            },
+            details=details,
         )

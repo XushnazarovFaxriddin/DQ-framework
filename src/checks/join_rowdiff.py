@@ -113,6 +113,15 @@ class JoinRowDiffCheck(BaseCheck):
             return True
         if pd.isna(left) or pd.isna(right):
             return False
+        
+        # Try timestamp comparison
+        if isinstance(left, pd.Timestamp) or isinstance(right, pd.Timestamp):
+            try:
+                lts = pd.to_datetime(left).tz_convert("UTC") if pd.to_datetime(left).tzinfo else pd.to_datetime(left).tz_localize("UTC")
+                rts = pd.to_datetime(right).tz_convert("UTC") if pd.to_datetime(right).tzinfo else pd.to_datetime(right).tz_localize("UTC")
+                return lts == rts
+            except Exception:
+                return str(left) == str(right)
 
         # Try numeric comparison
         try:
@@ -139,12 +148,17 @@ class JoinRowDiffCheck(BaseCheck):
         canonical, s_proj, t_proj = self._build_alignment()
 
         # Build join keys (source/target expressions as provided)
-        jk_src = list(self.table_cfg.join_keys.get("source", []))
-        jk_tgt = list(self.table_cfg.join_keys.get("target", []))
+        join_keys = getattr(self.check_cfg, "join_keys", None)
+        if not join_keys:
+            raise ValueError("join_rowdiff requires 'join_keys' at check-level")
+        jk_src = list(join_keys.get("source", []))
+        jk_tgt = list(join_keys.get("target", []))
+
+
+        if not jk_src or not jk_tgt:
+            raise ValueError("join_rowdiff requires join_keys.source and join_keys.target")
         if len(jk_src) != len(jk_tgt):
-            raise ValueError(
-                "join_keys.source and join_keys.target must have the same length"
-            )
+            raise ValueError("join_keys.source and join_keys.target must have the same length")
 
         # Construct aligned projections including join keys with canonical names k1..kn
         s_all = {f"k{i + 1}": e for i, e in enumerate(jk_src)}
@@ -157,21 +171,24 @@ class JoinRowDiffCheck(BaseCheck):
         s_sql = build_aligned_select(base_s_sql, s_all)
         t_sql = build_aligned_select(base_t_sql, t_all)
 
+        # ---- Resolve ORDER BY ----
         order_by_source = self.check_cfg.order_by_source
         order_by_target = self.check_cfg.order_by_target
         if not order_by_source and self.check_cfg.order_by:
             order_by_source = [
-                sanitize_identifier(col) for col in self.check_cfg.order_by
+                sanitize_identifier(s_proj[c] if c in s_proj else c)
+                for c in self.check_cfg.order_by
             ]
         if not order_by_target and self.check_cfg.order_by:
             order_by_target = [
-                sanitize_identifier(col) for col in self.check_cfg.order_by
+                sanitize_identifier(t_proj[c] if c in t_proj else c)
+                for c in self.check_cfg.order_by
             ]
 
         # Fetch dataframes (bounded by preview limit to avoid memory blowup)
         limit = int(self.vars_map.get("max_rows_preview", 1000))
-        s_df = self.source.fetch_df(wrap_order_by_limit(s_sql, order_by_source, limit))
-        t_df = self.target.fetch_df(wrap_order_by_limit(t_sql, order_by_target, limit))
+        s_df = self.source.fetch_df(wrap_order_by_limit(s_sql, order_by_source, limit, engine=self.source.engine_name))
+        t_df = self.target.fetch_df(wrap_order_by_limit(t_sql, order_by_target, limit, engine=self.target.engine_name))
 
         # Merge on join keys
         key_cols = [f"k{i + 1}" for i in range(len(jk_src))]
@@ -209,21 +226,29 @@ class JoinRowDiffCheck(BaseCheck):
                 if len(diffs) >= limit:
                     break
 
-        status = (
-            "PASS"
-            if (missing_on_t.empty and extra_on_t.empty and not diffs)
-            else "FAIL"
-        )
+        status = "PASS" if (missing_on_t.empty and extra_on_t.empty and not diffs) else "FAIL"
+        # Helper to filter dicts
+        def filter_dict(d):
+            return {k: v for k, v in d.items() if v not in (None, "", [], {})}
+
+        # Filter diffs
+        filtered_diffs = [
+            filter_dict({"keys": diff["keys"], "cells": filter_dict(diff["cells"])})
+            for diff in diffs
+            if filter_dict(diff["cells"])
+        ]
+
+        # Build details dict and filter
+        details = filter_dict({
+            "mismatch_total_estimate": len(filtered_diffs),
+            "canonical": canonical,
+            "missing_count_on_target": len(missing_on_t.to_dict(orient="records")),
+            "extra_count_on_target": len(extra_on_t.to_dict(orient="records")),
+        })
+
         return CheckResult(
             table=self.table_cfg.name,
             check_type="join_rowdiff",
             status=status,
-            details={
-                "missing_on_target": missing_on_t.to_dict(orient="records"),
-                "extra_on_target": extra_on_t.to_dict(orient="records"),
-                "mismatch_sample": diffs[:limit],
-                "mismatch_total_estimate": len(diffs),
-                "keys": key_cols,
-                "canonical": canonical,
-            },
+            details=details,
         )
