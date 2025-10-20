@@ -2,7 +2,6 @@
 # Base images and versions
 # =========================
 ARG PYTHON_IMAGE=python:3.11.9-slim
-ARG UV_VERSION=0.7.17
 
 # =========================
 # Stage 1: Builder
@@ -19,8 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc build-essential libpq-dev curl ca-certificates git \
  && rm -rf /var/lib/apt/lists/*
 
+RUN pip install --upgrade pip
+
 # Install uv via pip (matches user's requested pattern)
-RUN pip install --no-cache-dir "uv==${UV_VERSION}"
+RUN pip install --no-cache-dir "uv==0.7.17"
 
 WORKDIR /app
 
