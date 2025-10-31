@@ -1,0 +1,71 @@
+site_name: DQF Documentation
+site_description: Config-driven, pluggable Data Quality Framework
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+nav:
+  - Home: docs/index.md
+  - Contents: docs/contents.md
+  - Getting Started:
+      - Install: docs/getting-started/install.md
+      - Quickstart (YAML): docs/getting-started/quickstart-yaml.md
+  - Concepts:
+      - Hashing & Parity: docs/concepts/hashing.md
+      - Planner & Partitions: docs/concepts/planner-partitions.md
+      - Results Model: docs/concepts/results.md
+      - Registry & Plugins: docs/concepts/registry.md
+  - Checks:
+      - Row Count: docs/checks/row_count.md
+      - Schema Drift: docs/checks/schema_drift.md
+      - Hash Diff: docs/checks/hash_diff.md
+      - Join Rowdiff: docs/checks/join_rowdiff.md
+      - Aggregations: docs/checks/aggregations.md
+      - Group Aggregations: docs/checks/group_aggregations.md
+      - Partitions: docs/checks/partitions.md
+      - Domain: docs/checks/domain.md
+      - Freshness: docs/checks/freshness.md
+      - Custom SQL: docs/checks/custom_sql.md
+      - Great Expectations: docs/checks/expectations_ge.md
+      - Soda: docs/checks/expectations_soda.md
+  - Connectors:
+      - BigQuery: docs/connectors/bigquery.md
+      - Postgres: docs/connectors/postgres.md
+      - Oracle: docs/connectors/oracle.md
+      - MSSQL: docs/connectors/mssql.md
+      - Snowflake: docs/connectors/snowflake.md
+      - CSV (Local): docs/connectors/csv.md
+      - GCS CSV: docs/connectors/gcs_csv.md
+      - GCS Parquet: docs/connectors/gcs_parquet.md
+      - Airtable (stub): docs/connectors/airtable.md
+      - REST API (stub): docs/connectors/rest_api.md
+  - Alerts:
+      - Google Chat: docs/alerts/gchat.md
+      - Email (SMTP): docs/alerts/email.md
+  - How-To:
+      - Run with Docker: docs/how-to/run-docker.md
+      - Airflow Integration: docs/how-to/airflow.md
+      - Env & Secrets: docs/how-to/env-secrets.md
+      - Templating & Variables: docs/how-to/templating.md
+      - Concurrency & Timeouts: docs/how-to/concurrency-timeouts.md
+      - Results & Reporting: docs/how-to/results-reporting.md
+  - Reference:
+      - CLI: docs/reference/cli.md
+      - YAML Schema: docs/reference/yaml-schema.md
+      - Python Config: docs/reference/python-config.md
+      - Env Vars: docs/reference/env-vars.md
+      - Logging: docs/reference/logging.md
+      - YAML Quoting Rules: docs/reference/yaml-quirks.md
+  - Architecture:
+      - Overview: docs/architecture/overview.md
+      - Config Flow: docs/architecture/config-flow.md
+      - Planner & Execution: docs/architecture/planner-execution.md
+      - Render & Alerts: docs/architecture/render-alerts.md
+  - Examples:
+      - Oracle → BigQuery: docs/examples/oracle_to_bq.md
+      - MSSQL → BigQuery: docs/examples/mssql_to_pg.md
+      - CSV/GCS: docs/examples/csv_gcs.md
+  - Troubleshooting: docs/troubleshooting.md
+  - FAQ: docs/faq.md
