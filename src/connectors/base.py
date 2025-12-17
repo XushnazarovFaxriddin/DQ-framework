@@ -32,6 +32,10 @@ class BaseConnector(ABC):
     def hash_expr(self, cols: Iterable[str], hashing: HashingCfg) -> str:
         """Return a deterministic hash expression over ``cols``."""
 
+    def wrap_subquery(self, sql: str, alias: str) -> str:
+        """Wrap SQL in parentheses and apply the canonical alias syntax."""
+        return f"({sql}) AS {alias}"
+
     @abstractmethod
     def fetch_df(self, sql: str) -> pd.DataFrame:
         """Return a :class:`pandas.DataFrame` for ``sql``."""

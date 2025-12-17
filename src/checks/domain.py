@@ -19,7 +19,7 @@ from src.runtime.registry import register_check
 class DomainCheck(BaseCheck):
     def run(self) -> CheckResult:
         col = self.check_cfg.column or self.check_cfg.col
-        on = (self.check_cfg.on or "source").lower()
+        on = str(self.check_cfg.on).lower()
         # Select connector based on 'on' value
         if on not in ["source", "target"]:
             raise ValueError("domain check: 'on' must be either 'source' or 'target'")

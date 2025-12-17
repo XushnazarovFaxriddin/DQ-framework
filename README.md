@@ -57,7 +57,7 @@ alerts:
       mode: card
     - kind: email
       to:
-        - dq@example.com
+        - jamshid.allayev@virginvoyages.com
 
 tables:
   - name: customers

@@ -10,6 +10,7 @@ from typing import Iterable, List, Tuple
 
 import pandas as pd
 
+from src.render.mismatch_links import csv_links_for_check
 from src.render.summarize import summarize_run
 from src.render.tabular import markdown_summary_table
 from src.runtime.registry import register_alert
@@ -56,17 +57,35 @@ def _attach_previews(
 def _build_message(result: RunResult, recipients: List[str]) -> EmailMessage:
     msg = EmailMessage()
     subject = os.getenv("DQF_EMAIL_SUBJECT", "DQF Run Report")
-    msg["Subject"] = f"{subject}: {result.overall_status}"
+    severity_label = result.overall_severity or "INFO"
+    msg["Subject"] = f"{subject}: [{severity_label}] {result.overall_status}"
     msg["From"] = os.getenv("SMTP_FROM", "dqf@localhost")
     msg["To"] = ", ".join(recipients)
 
     summary_text = summarize_run(result)
     table_md = markdown_summary_table(result, max_rows=30)
-    body = f"{summary_text}\n\n{table_md}\n"
+    mismatch_links = []
+    for check in result.checks:
+        if check.status == "FAIL":
+            for uri in csv_links_for_check(check):
+                mismatch_links.append((check.table, check.check_type, uri))
+
+    body = f"Severity: {severity_label}\n{summary_text}\n\n{table_md}\n"
+    if mismatch_links:
+        link_lines = [
+            f"- {table}/{check_type}: {uri}"
+            for table, check_type, uri in mismatch_links[:10]
+        ]
+        body += "\nMismatch CSVs:\n" + "\n".join(link_lines) + "\n"
     msg.set_content(body)
-    msg.add_alternative(
-        f"<pre>{summary_text}</pre><br/><pre>{table_md}</pre>", subtype="html"
-    )
+    html_body = f"<p>Severity: {severity_label}</p><pre>{summary_text}</pre><br/><pre>{table_md}</pre>"
+    if mismatch_links:
+        html_links = "".join(
+            f'<li>{table}/{check_type}: <a href="{uri}">Download mismatch CSV</a></li>'
+            for table, check_type, uri in mismatch_links[:10]
+        )
+        html_body += f"<p>Mismatch CSVs:</p><ul>{html_links}</ul>"
+    msg.add_alternative(html_body, subtype="html")
 
     _attach_previews(msg, _iter_preview_payloads(result))
     return msg

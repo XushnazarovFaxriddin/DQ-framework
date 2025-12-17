@@ -1,0 +1,71 @@
+site_name: DQF Documentation
+site_description: Config-driven, pluggable Data Quality Framework
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+nav:
+  - Home: /
+  - Contents: contents
+  - Getting Started:
+      - Install: getting-started/install
+      - Quickstart (YAML): getting-started/quickstart-yaml
+  - Concepts:
+      - Hashing & Parity: concepts/hashing
+      - Planner & Partitions: concepts/planner-partitions
+      - Results Model: concepts/results
+      - Registry & Plugins: concepts/registry
+  - Checks:
+      - Row Count: checks/row_count
+      - Schema Drift: checks/schema_drift
+      - Hash Diff: checks/hash_diff
+      - Join Rowdiff: checks/join_rowdiff
+      - Aggregations: checks/aggregations
+      - Group Aggregations: checks/group_aggregations
+      - Partitions: checks/partitions
+      - Domain: checks/domain
+      - Freshness: checks/freshness
+      - Custom SQL: checks/custom_sql
+      - Great Expectations: checks/expectations_ge
+      - Soda: checks/expectations_soda
+  - Connectors:
+      - BigQuery: connectors/bigquery
+      - Postgres: connectors/postgres
+      - Oracle: connectors/oracle
+      - MSSQL: connectors/mssql
+      - Snowflake: connectors/snowflake
+      - CSV (Local): connectors/csv
+      - GCS CSV: connectors/gcs_csv
+      - GCS Parquet: connectors/gcs_parquet
+      - Airtable (stub): connectors/airtable
+      - REST API (stub): connectors/rest_api
+  - Alerts:
+      - Google Chat: alerts/gchat
+      - Email (SMTP): alerts/email
+  - How-To:
+      - Run with Docker: how-to/run-docker
+      - Airflow Integration: how-to/airflow
+      - Env & Secrets: how-to/env-secrets
+      - Templating & Variables: how-to/templating
+      - Concurrency & Timeouts: how-to/concurrency-timeouts
+      - Results & Reporting: how-to/results-reporting
+  - Reference:
+      - CLI: reference/cli
+      - YAML Schema: reference/yaml-schema
+      - Python Config: reference/python-config
+      - Env Vars: reference/env-vars
+      - Logging: reference/logging
+      - YAML Quoting Rules: reference/yaml-quirks
+  - Architecture:
+      - Overview: architecture/overview
+      - Config Flow: architecture/config-flow
+      - Planner & Execution: architecture/planner-execution
+      - Render & Alerts: architecture/render-alerts
+  - Examples:
+      - Oracle → BigQuery: examples/oracle_to_bq
+      - MSSQL → BigQuery: examples/mssql_to_pg
+      - CSV/GCS: examples/csv_gcs
+  - Troubleshooting: troubleshooting
+  - FAQ: faq

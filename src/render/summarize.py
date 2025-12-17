@@ -31,8 +31,9 @@ def summarize_run(result: RunResult, *, vars_map: Dict[str, Any] | None = None) 
                     )
             else:
                 details_str = str(c.details)
+                severity_field = c.severity or "WARNING"
                 lines.append(
-                    f"- {c.table}/{c.check_type}: {details_str[:max_chars]}{' ...' if len(details_str) > max_chars else ''}"
+                    f"- {c.table}/{c.check_type} ({severity_field}): {details_str[:max_chars]}{' ...' if len(details_str) > max_chars else ''}"
                 )
     else:
         lines.append("All checks passed.")

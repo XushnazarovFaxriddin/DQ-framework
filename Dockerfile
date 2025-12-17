@@ -1,7 +1,8 @@
 # =========================
 # Base images and versions
 # =========================
-ARG PYTHON_IMAGE=python:3.11.9-slim
+ARG PYTHON_IMAGE=python:3.11.2-bullseye
+
 
 # =========================
 # Stage 1: Builder
@@ -9,37 +10,36 @@ ARG PYTHON_IMAGE=python:3.11.9-slim
 # - Uses BuildKit cache mounts for faster incremental builds
 # =========================
 FROM ${PYTHON_IMAGE} AS builder
+ARG UV_VERSION=0.7.17
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# ENV PYTHONDONTWRITEBYTECODE=1 \
+#     PYTHONUNBUFFERED=1
 
 # System deps required to compile wheels and talk to Postgres (psycopg2)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc build-essential libpq-dev curl ca-certificates git \
- && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --upgrade pip
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     gcc build-essential libpq-dev curl ca-certificates git \
+#  && rm -rf /var/lib/apt/lists/*
 
 # Install uv via pip (matches user's requested pattern)
-RUN pip install --no-cache-dir "uv==0.7.17"
+RUN pip install "uv==${UV_VERSION}"  --no-cache-dir
 
 WORKDIR /app
 
 # Copy dependency metadata first to maximize layer caching
-COPY pyproject.toml ./pyproject.toml
+COPY pyproject.toml ./
 
 # 1) Generate/refresh lock file (deterministic builds)
 # 2) Pre-fetch deps to cache without installing the project itself
+RUN uv lock
+# fast build with cache 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv lock && \
     uv sync --locked --no-install-project
 
 # Copy the rest of the project
 COPY . .
 
 # Create the final virtualenv including the project itself
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
+RUN uv sync --locked
 
 # (Optional) You can run smoke tests/linters here:
 # RUN uv run pytest -q
@@ -49,36 +49,35 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # - Thin runtime with only what is needed to run the app
 # - Copies the built .venv and source from the builder layer
 # =========================
-FROM ${PYTHON_IMAGE} AS runtime
+# FROM ${PYTHON_IMAGE} AS runtime
 
-# Runtime OS deps (libpq for psycopg2, CA certs for outbound HTTPS)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 ca-certificates curl \
- && rm -rf /var/lib/apt/lists/*
+# # Runtime OS deps (libpq for psycopg2, CA certs for outbound HTTPS)
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     libpq5 ca-certificates curl \
+#  && rm -rf /var/lib/apt/lists/*
 
-# Use non-root user for better security
-RUN useradd -m -u 10001 appuser
+# # Use non-root user for better security
+# RUN useradd -m -u 10001 appuser
 
 WORKDIR /app
 
-# Copy virtualenv and application code from builder
-COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app /app
-
 # Ensure the virtualenv is preferred
 ENV PATH="/app/.venv/bin:${PATH}"
+
+# add path to uv executable
+ENV UV_PATH="/app/.venv/bin/uv"
 
 # -------------------------
 # ENTRYPOINT options
 # -------------------------
 # Option A (recommended): run module directly via uv
-# ENTRYPOINT ["uv", "run", "-m", "src.main"]
+ENTRYPOINT ["uv", "run", "-m", "src.main"]
 
 # Option B: if you defined a console script in pyproject like:
 #   [project.scripts]
 #   dqf = "src.main:main"
 # then you can switch to:
-ENTRYPOINT ["dqf"]
+# ENTRYPOINT ["dqf"]
 
 # -------------------------
 # Notes:

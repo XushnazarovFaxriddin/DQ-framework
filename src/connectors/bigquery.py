@@ -12,6 +12,7 @@ Hashing notes:
 - LOWER(...) is applied to the final HEX to match Postgres' lowercase md5 output.
 """
 
+import os
 from typing import Iterable, List, Optional, Any
 import pandas as pd
 from google.cloud import bigquery
@@ -27,7 +28,11 @@ class BigQueryConnector(BaseConnector):
 
     def __init__(self, uri: str) -> None:
         super().__init__(uri)
-        self.client = bigquery.Client()
+        BQ_PROJECT_ID = os.getenv("PROJECT_ID", None)
+        if not BQ_PROJECT_ID:
+            raise ValueError("PROJECT_ID environment variable is not set")
+        self.project_id = BQ_PROJECT_ID
+        self.client = bigquery.Client(project=self.project_id)
 
     # ----- SQL rendering -----
     def render_select_sql(

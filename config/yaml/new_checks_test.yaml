@@ -9,7 +9,7 @@ connections:
 #     - kind: gchat
 #       mode: text # card or text
 #     # - kind: email
-#     #   to: "user@example.com"
+#     #   to: "david.jimenez@virginvoyages.com"
 
 tables:
   - name: RES_HEADER_VALIDATION    

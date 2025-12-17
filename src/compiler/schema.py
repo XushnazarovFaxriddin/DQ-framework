@@ -1,5 +1,58 @@
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from __future__ import annotations
+
+import os
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def _env_int(var_name: str, default: int) -> int:
+    val = os.getenv(var_name)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
+
+def _default_chunk_size() -> int:
+    return _env_int("DQF_DEFAULT_MISMATCH_CHUNK_SIZE", 1_000_000)
+
+
+def _default_max_ranges() -> int:
+    return _env_int("DQF_DEFAULT_MISMATCH_MAX_RANGES", 5)
+
+
+def _default_max_scan_chunks() -> int:
+    return _env_int("DQF_DEFAULT_MISMATCH_MAX_SCAN_CHUNKS", 100)
+
+
+def _default_binary_depth() -> int:
+    return _env_int("DQF_DEFAULT_MISMATCH_BINARY_DEPTH", 5)
+
+
+def _env_str(var_name: str, default: Optional[str]) -> Optional[str]:
+    val = os.getenv(var_name)
+    if val is None or val == "":
+        return default
+    return val
+
+
+def _default_results_backend() -> str:
+    return _env_str("DQF_RESULTS_BACKEND", "local") or "local"
+
+
+def _default_results_bucket() -> Optional[str]:
+    return _env_str("DQF_RESULTS_BUCKET", None)
+
+
+def _default_results_base_path() -> str:
+    return _env_str("DQF_RESULTS_BASE_PATH", "mismatch_ranges") or "mismatch_ranges"
+
+
+def _default_results_public_url_prefix() -> Optional[str]:
+    return _env_str("DQF_RESULTS_PUBLIC_URL_PREFIX", None)
 
 
 class HashingCfg(BaseModel):
@@ -93,6 +146,82 @@ class ColumnMapEntry(BaseModel):
     target: str
 
 
+class MismatchSamplingCfg(BaseModel):
+    mode: Literal["chunk", "binary"]
+    chunk_size: Optional[int] = Field(default_factory=_default_chunk_size)
+    max_ranges: int = Field(default_factory=_default_max_ranges)
+    max_scan_chunks: int = Field(default_factory=_default_max_scan_chunks)
+    max_depth: int = Field(default_factory=_default_binary_depth)
+    range_start: Optional[int] = None
+    range_end: Optional[int] = None
+
+
+class MismatchCsvCfg(BaseModel):
+    enabled: bool = False
+    backend: Literal["local", "gcs"] = Field(default_factory=_default_results_backend)
+    bucket: Optional[str] = Field(default_factory=_default_results_bucket)
+    base_path: str = Field(default_factory=_default_results_base_path)
+    public_url_prefix: Optional[str] = Field(
+        default_factory=_default_results_public_url_prefix
+    )
+
+
+class SeverityRuleCfg(BaseModel):
+    condition: Optional[str] = None
+    severity: Literal["INFO", "WARNING", "CRITICAL"]
+    older_than_days: Optional[int] = None
+    newer_than_days: Optional[int] = None
+    tolerance_pct_exceeded_gte: Optional[float] = None
+    tolerance_pct_exceeded_lt: Optional[float] = None
+    tolerance_abs_exceeded_gte: Optional[float] = None
+    tolerance_abs_exceeded_lt: Optional[float] = None
+    reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _ensure_severity(cls, values: "SeverityRuleCfg") -> "SeverityRuleCfg":
+        if values.severity not in ("INFO", "WARNING", "CRITICAL"):
+            raise ValueError("severity must be INFO, WARNING, or CRITICAL")
+        return values
+
+
+class TableStatsMetricCfg(BaseModel):
+    method: str
+    column: Optional[str] = None
+    name: Optional[str] = None
+
+
+class AdaptiveThresholdCfg(BaseModel):
+    when: Literal["last_hours", "older_than_days"]
+    hours: Optional[int] = None
+    days: Optional[int] = None
+    tolerance_pct: Optional[float] = None
+    tolerance_abs: Optional[float] = None
+
+    @model_validator(mode="after")
+    def _ensure_args(cls, values: "AdaptiveThresholdCfg") -> "AdaptiveThresholdCfg":
+        if values.tolerance_pct is None and values.tolerance_abs is None:
+            raise ValueError("adaptive_threshold requires tolerance_pct or tolerance_abs")
+        if values.when == "last_hours" and (values.hours is None or values.hours <= 0):
+            raise ValueError("last_hours adaptive threshold requires positive 'hours'")
+        if values.when == "older_than_days" and (values.days is None or values.days <= 0):
+            raise ValueError("older_than_days adaptive threshold requires positive 'days'")
+        return values
+
+
+class StatsCompareWindowCfg(BaseModel):
+    period_granularity: Literal["day", "week", "month", "year"]
+    lookback_days: Optional[int] = None
+    lookback_weeks: Optional[int] = None
+    lookback_months: Optional[int] = None
+    lookback_years: Optional[int] = None
+
+
+class TableStatsStorageCfg(BaseModel):
+    backend: Literal["bigquery"] = "bigquery"
+    table: str
+    project: Optional[str] = None
+
+
 class CheckCfg(BaseModel):
     """
     Generic check configuration with multiple ways to define compared columns:
@@ -120,6 +249,9 @@ class CheckCfg(BaseModel):
     rules: Optional[List[Dict[str, Any]]] = None
     column: Optional[str] = None  # e.g., for freshness
     col: Optional[str] = None  # alias for 'column'
+    id_column: Optional[str] = None
+    id_column_source: Optional[str] = None
+    id_column_target: Optional[str] = None
     on: Optional[str] = None # source|target
     max_lag_minutes: Optional[int] = None
     tolerance_pct: Optional[float] = None
@@ -143,8 +275,22 @@ class CheckCfg(BaseModel):
     tolerance_time_sec: Optional[int] = None
     tolerance_time_min: Optional[int] =  None
 
+    time_column: Optional[str] = None
+    time_column_source: Optional[str] = None
+    time_column_target: Optional[str] = None
+    time_granularity: Optional[str] = None
+    metrics: Optional[List[TableStatsMetricCfg]] = None
+    stats_storage: Optional[TableStatsStorageCfg] = None
+
+    stats_table: Optional[str] = None
+    stats_table_side: Optional[str] = None
+    table_name: Optional[str] = None
+    compare_on: Optional[List[StatsCompareWindowCfg]] = None
+    severity_rules: Optional[List[SeverityRuleCfg]] = None
+
     # ordering
     order_by: Optional[List[str]] = None  # canonical column names (after alignment)
+    mismatch_sampling: Optional[MismatchSamplingCfg] = None
     order_by_source: Optional[List[str]] = None  # raw SQL expressions for source side
     order_by_target: Optional[List[str]] = None  # raw SQL expressions for target side
 
@@ -177,7 +323,7 @@ class AlertsCfg(BaseModel):
         - kind: gchat                 # GChat always uses env webhook
           mode: card                  # or text
         - kind: email
-          to: ["user@example.com"]      # if omitted, fallback to env DQ_EMAILS
+          to: ["jamshid.allayev@virginvoyages.com"]      # if omitted, fallback to env DQ_EMAILS
     """
 
     routes: List[Dict[str, Any]] = Field(default_factory=list)
@@ -191,6 +337,19 @@ class PlanningCfg(BaseModel):
     partitions: Optional[Dict[str, Any]] = None
 
 
+class ResultsTableCfg(BaseModel):
+    enabled: bool = False
+    backend: Literal["bigquery"] = "bigquery"
+    table: Optional[str] = None
+    project: Optional[str] = None
+
+
+class ResultsStorageCfg(BaseModel):
+    mismatch_csv: Optional[MismatchCsvCfg] = None
+    runs: Optional[ResultsTableCfg] = None
+    checks: Optional[ResultsTableCfg] = None
+
+
 class ConfigModel(BaseModel):
     """
     Top-level config schema.
@@ -199,5 +358,6 @@ class ConfigModel(BaseModel):
     connections: ConnectionsCfg
     defaults: Optional[DefaultsCfg] = DefaultsCfg()
     tables: List[TableCfg]
+    results_storage: Optional[ResultsStorageCfg] = None
     planning: Optional[PlanningCfg] = None
     alerts: Optional[AlertsCfg] = AlertsCfg()

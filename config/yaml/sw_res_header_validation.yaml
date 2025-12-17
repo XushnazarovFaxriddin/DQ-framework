@@ -1,0 +1,168 @@
+connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+alerts:
+  routes:
+    - kind: gchat
+      mode: card
+
+tables:
+  - name: res_header
+    source:
+      table: RES_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header
+    
+    column_map:
+      res_id:                  { source: RES_ID,             target: res_id }
+      res_init_date:           { source: RES_INIT_DATE,      target: res_init_date }
+      res_guest_count:         { source: RES_GUEST_COUNT,    target: res_guest_count }
+      agency_id:               { source: AGENCY_ID,          target: agency_id }
+      agent_id:                { source: AGENT_ID,           target: agent_id }
+      cabin_category:          { source: CABIN_CATEGORY,     target: cabin_category }
+      res_status:              { source: RES_STATUS,         target: res_status }
+      probability:             { source: PROBABILITY,        target: probability }
+      ship_code:               { source: SHIP_CODE,          target: ship_code }
+      package_type:            { source: PACKAGE_TYPE,       target: package_type }
+      sail_date_from:          { source: SAIL_DATE_FROM,     target: sail_date_from }
+      sail_date_to:            { source: SAIL_DATE_TO,       target: sail_date_to }
+      source_code:             { source: SOURCE_CODE,        target: source_code }
+      currency_rate:           { source: CURRENCY_RATE,      target: currency_rate }
+      currency_code:           { source: CURRENCY_CODE,      target: currency_code }
+      res_name:                { source: RES_NAME,           target: res_name }
+      last_updated_at:         { source: LAST_UPDATED_AT,    target: last_updated_at }
+      is_prob_manual:          { source: IS_PROB_MANUAL,     target: is_prob_manual }
+      res_mode:                { source: RES_MODE,           target: res_mode }
+      original_init_date:      { source: ORIGINAL_INIT_DATE, target: original_init_date }
+      confirmation_date:       { source: CONFIRMATION_DATE,  target: confirmation_date }
+      quote_confirmation_date: { source: QUOTE_CONFIRMATION_DATE, target: quote_confirmation_date }
+      language_code:           { source: LANGUAGE_CODE,      target: language_code }
+
+    checks:
+      - type: schema_drift
+        case_sensitive: false
+
+      - type: hash_diff
+        include:
+          - res_id
+          - res_init_date
+          - res_guest_count
+          - agency_id
+          - agent_id
+          - cabin_category
+          - res_status
+          - probability
+          - ship_code
+          - package_type
+          - sail_date_from
+          - sail_date_to
+          - source_code
+          - currency_rate
+          - currency_code
+          - res_name
+          - last_updated_at
+          - is_prob_manual
+          - res_mode
+          - original_init_date
+          - confirmation_date
+          - quote_confirmation_date
+          - language_code
+        order_by: [res_id]
+
+      - type: join_rowdiff
+        join_keys:
+          source: ["RES_ID"]
+          target: ["res_id"]
+        include:
+          - res_init_date
+          - res_guest_count
+          - agency_id
+          - agent_id
+          - cabin_category
+          - res_status
+          - probability
+          - ship_code
+          - sail_date_from
+          - sail_date_to
+          - currency_rate
+          - currency_code
+          - res_name
+          - last_updated_at
+          - is_prob_manual
+          - res_mode
+          - original_init_date
+          - confirmation_date
+          - quote_confirmation_date
+          - language_code
+        tolerance_abs: 1
+        order_by: [res_id]
+
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            column: res_id
+          - method: sum
+            column: probability
+          - method: max
+            source_column: LAST_UPDATED_AT
+            target_column: last_updated_at
+            tolerance_abs: 10
+
+      - type: group_aggregations
+        include: [ship_code]
+        rules:
+          - method: count
+          - method: sum
+            column: probability
+        top_n: 50
+
+      - type: group_aggregations
+        include: [res_status]
+        rules:
+          - method: count
+          - method: sum
+            column: probability
+        top_n: 50
+
+      - type: domain
+        'on': target
+        column: termination_completed
+        allowed_values: ["Y", "N"]
+
+      - type: domain
+        'on': target
+        column: is_prob_manual
+        allowed_values: ["Y", "N"]
+
+      - type: domain
+        'on': target
+        column: cab_distrib_bypass_eligib_rule
+        allowed_values: ["Y", "N"]
+
+      - type: domain
+        'on': target
+        column: has_external_components
+        allowed_values: ["Y", "N"]
+
+      - type: domain
+        'on': target
+        column: allow_invoicing
+        allowed_values: ["Y", "N"]
+
+      - type: domain
+        'on': target
+        column: language_code
+        regex: "^[A-Z]{3}$"
+
+      # 8) Pipeline freshness on target
+      - type: freshness
+        'on': target
+        column: last_updated_at
+        max_lag_minutes: 720
+
+# run example:
+# python -m  src.main --filetype yaml --config-file sw_res_header_test --vars=hours_ago=2 --env prod --run_label testing

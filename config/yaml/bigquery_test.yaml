@@ -1,0 +1,46 @@
+connections:
+  source_env_var: CERT_BQ_CONN_STR
+  source_type: bigquery
+  target_env_var: PROD_BQ_CONN_STR
+  target_type: bigquery
+
+defaults:
+  row_limit: 2000
+  hashing:
+    algorithm: double_md5
+    null_token: "∅"
+    delimiter: "|"
+    case: lower
+
+tables:
+  - name: APIS_INFO    
+    # canonical mapping for alignment
+    column_map:
+      start_date: { source: "`Sart Date`",   target: "`Sart Date`" }
+      end_date:   { source: "`End Date`",    target: "`End Date`" }
+
+    source:
+      table: cert-shore-295415.test.TEMP_VV_BrandTracker
+    target:
+      table: prod-shore.Marketing_Analytics.TEMP_VV_BrandTracker
+
+    checks:
+      - type: row_count
+      # - type: schema_drift
+      #   # expected_columns is optional:
+      #   # If you want to enforce exact schema:
+      #   expected_columns:
+      #     - name: "start_date"
+      #       type: "TIMESTAMP"
+      #     - name: "end_date"
+      #       type: "TIMESTAMP"
+      # - type: freshness
+      #   column: "`End Date`"        # required
+      #   max_lag_minutes: 60     # required
+      # - type: freshness
+      #   column: "`End Date`"        # required
+      #   on: target              # default: source
+      #   max_lag_minutes: 60     # required
+
+# run example:
+# python -m  src.main --filetype yaml --config-file bigquery_test --env cert --run_label testing

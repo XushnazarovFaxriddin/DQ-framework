@@ -1,0 +1,51 @@
+# Table stats sampling example
+# Requires the `dqf_monitoring` tables defined in `scripts/bq_tables.sql`.
+
+connections:
+  source_env_var: MONITORING_BQ_CONN
+  target_env_var: MONITORING_BQ_CONN
+  source_type: bigquery
+  target_type: bigquery
+
+results_storage:
+  mismatch_csv:
+    enabled: true
+
+tables:
+  - name: DQF_RUNS_STATS
+    source:
+      table: cert-shore-295415.dqf_monitoring.dqf_runs
+    target:
+      table: cert-shore-295415.dqf_monitoring.dqf_runs
+    checks:
+      - type: table_stats
+        'on': source
+        time_column: started_at
+        time_granularity: month
+        metrics:
+          - method: count
+            column: "*"
+          - method: sum
+            column: pass_count
+          - method: sum
+            column: fail_count
+        stats_storage:
+          backend: bigquery
+          table: cert-shore-295415.dqf_monitoring.dqf_table_stats
+      - type: stats_compare
+        stats_table: cert-shore-295415.dqf_monitoring.dqf_table_stats
+        stats_table_side: target
+        table_name: DQF_RUNS_STATS
+        compare_on:
+          - period_granularity: month
+            lookback_months: 6
+          - period_granularity: day
+            lookback_days: 30
+        metrics:
+          - method: count
+            column: "*"
+          - method: sum
+            column: pass_count
+          - method: sum
+            column: fail_count
+        tolerance_pct: 1.0

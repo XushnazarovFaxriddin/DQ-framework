@@ -1,0 +1,2649 @@
+﻿connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+alerts:
+  routes:
+    - kind: gchat
+      mode: card
+      # send_all_checks: true
+
+tables:
+  # SEAWARE.ACC_COUPON
+  - name: ACC_COUPON
+    source:
+      table: SEAWARE.ACC_COUPON
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            user_defined_coupon_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_coupon`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY user_defined_coupon_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: USER_DEFINED_COUPON_ID
+            target_column: user_defined_coupon_id
+
+  # SEAWARE.ACC_COUPON_CLASS
+  - name: ACC_COUPON_CLASS
+    source:
+      table: SEAWARE.ACC_COUPON_CLASS
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_coupon_class`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.ACC_INVOICE_DETAIL
+  - name: ACC_INVOICE_DETAIL
+    source:
+      table: SEAWARE.ACC_INVOICE_DETAIL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_invoice_detail`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.ACC_TRANS_DETAIL
+  - name: ACC_TRANS_DETAIL
+    source:
+      table: SEAWARE.ACC_TRANS_DETAIL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            trans_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_trans_detail`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY trans_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRANS_ID
+            target_column: trans_id
+
+  # SEAWARE.ACC_TRANS_HISTORY
+  - name: ACC_TRANS_HISTORY
+    source:
+      table: SEAWARE.ACC_TRANS_HISTORY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_trans_history`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # # SEAWARE.AGENCY_INVOICING_BALANCE
+  # - name: AGENCY_INVOICING_BALANCE
+  #   source:
+  #     table: SEAWARE.AGENCY_INVOICING_BALANCE
+  #   target:
+  #     query: |
+  #       SELECT *
+  #       FROM (
+  #         SELECT
+  #           agency_id,
+  #           op
+  #         FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_invoicing_balance`
+  #         QUALIFY ROW_NUMBER() OVER (
+  #           PARTITION BY agency_id
+  #           ORDER BY ts_ms DESC, lsn DESC
+  #         ) = 1
+  #       )
+  #       WHERE op != 'd'
+  #   checks:
+  #     - type: aggregations
+  #       tolerance_pct: 5.0
+  #       rules:
+  #         - method: distinct_count
+  #           source_col: AGENCY_ID
+  #           target_column: agency_id
+
+  # SEAWARE.AGENCY_INV_BALANCE_HISTORY
+  - name: AGENCY_INV_BALANCE_HISTORY
+    source:
+      table: SEAWARE.AGENCY_INV_BALANCE_HISTORY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_inv_balance_history`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.AGENCY
+  - name: AGENCY
+    source:
+      table: SEAWARE.AGENCY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            agency_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY agency_code
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AGENCY_CODE
+            target_column: agency_code
+
+  # SEAWARE.AGENCY_ADDRESS
+  - name: AGENCY_ADDRESS
+    source:
+      table: SEAWARE.AGENCY_ADDRESS
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            agency_addr_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_address`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY agency_addr_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AGENCY_ADDR_ID
+            target_column: agency_addr_id
+
+  # SEAWARE.AGENCY_CLASSIFICATION_LINK
+  - name: AGENCY_CLASSIFICATION_LINK
+    source:
+      table: SEAWARE.AGENCY_CLASSIFICATION_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_classification_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.AGENCY_LINK
+  - name: AGENCY_LINK
+    source:
+      table: SEAWARE.AGENCY_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            link_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY link_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: LINK_ID
+            target_column: link_id
+
+  # SEAWARE.AIR_ACTUAL_COST_ITEM
+  - name: AIR_ACTUAL_COST_ITEM
+    source:
+      table: SEAWARE.AIR_ACTUAL_COST_ITEM
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            cost_item_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_cost_item`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY cost_item_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COST_ITEM_ID
+            target_column: cost_item_id
+
+  # SEAWARE.AIR_ACTUAL_HEADER
+  - name: AIR_ACTUAL_HEADER
+    source:
+      table: SEAWARE.AIR_ACTUAL_HEADER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            header_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_header`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY header_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HEADER_ID
+            target_column: header_id
+
+  # SEAWARE.AIR_ACTUAL_LEG
+  - name: AIR_ACTUAL_LEG
+    source:
+      table: SEAWARE.AIR_ACTUAL_LEG
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            leg_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_leg`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY leg_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: LEG_ID
+            target_column: leg_id
+
+  # SEAWARE.AIR_ACTUAL_PAX_LINK
+  - name: AIR_ACTUAL_PAX_LINK
+    source:
+      table: SEAWARE.AIR_ACTUAL_PAX_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_pax_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.AIR_ACTUAL_PNR_LINK
+  - name: AIR_ACTUAL_PNR_LINK
+    source:
+      table: SEAWARE.AIR_ACTUAL_PNR_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_pnr_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.AIR_ACTUAL_SEGMENT
+  - name: AIR_ACTUAL_SEGMENT
+    source:
+      table: SEAWARE.AIR_ACTUAL_SEGMENT
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            segment_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_segment`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY segment_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SEGMENT_ID
+            target_column: segment_id
+
+  # SEAWARE.AIR_ACTUAL_TICKET
+  - name: AIR_ACTUAL_TICKET
+    source:
+      table: SEAWARE.AIR_ACTUAL_TICKET
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            ticket_no,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_ticket`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY ticket_no
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TICKET_NO
+            target_column: ticket_no
+
+  # SEAWARE.AIR_AMADEUS_LOG
+  - name: AIR_AMADEUS_LOG
+    source:
+      table: SEAWARE.AIR_AMADEUS_LOG
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            message_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_amadeus_log`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY message_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: MESSAGE_ID
+            target_column: message_id
+
+  # SEAWARE.AIRLINE
+  - name: AIRLINE
+    source:
+      table: SEAWARE.AIRLINE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            airline_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_airline`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY airline_code
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AIRLINE_CODE
+            target_column: airline_code
+
+  # SEAWARE.AIRPORT
+  - name: AIRPORT
+    source:
+      table: SEAWARE.AIRPORT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_airport
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AIRPORT_CODE
+            target_column: airport_code
+
+  # SEAWARE.AM_CODE
+  - name: AM_CODE
+    source:
+      table: SEAWARE.AM_CODE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            amenity_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_am_code`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY amenity_code
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AMENITY_CODE
+            target_column: amenity_code
+
+  # SEAWARE.APIS_DOCUMENT
+  - name: APIS_DOCUMENT
+    source:
+      table: SEAWARE.APIS_DOCUMENT
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            country_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_apis_document`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY country_code
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COUNTRY_CODE
+            target_column: country_code
+
+  # SEAWARE.APIS_ID_DOCUMENT_TYPE
+  - name: APIS_ID_DOCUMENT_TYPE
+    source:
+      table: SEAWARE.APIS_ID_DOCUMENT_TYPE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_apis_id_document_type`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.APIS_INFO
+  - name: APIS_INFO
+    source:
+      table: SEAWARE.APIS_INFO
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_apis_info`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.CABIN_CAT_GEN_LNK_CABIN_CAT
+  - name: CABIN_CAT_GEN_LNK_CABIN_CAT
+    source:
+      table: SEAWARE.CABIN_CAT_GEN_LNK_CABIN_CAT
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_cabin_cat_gen_lnk_cabin_cat`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.CABIN_CATEGORY
+  - name: CABIN_CATEGORY
+    source:
+      table: SEAWARE.CABIN_CATEGORY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            cabin_category_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_cabin_category`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY cabin_category_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CABIN_CATEGORY_ID
+            target_column: cabin_category_id
+
+  # SEAWARE.CABIN_CATEGORY_GENERIC
+  - name: CABIN_CATEGORY_GENERIC
+    source:
+      table: SEAWARE.CABIN_CATEGORY_GENERIC
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            cabin_category_generic,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_cabin_category_generic`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY cabin_category_generic
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CABIN_CATEGORY_GENERIC
+            target_column: cabin_category_generic
+
+  # SEAWARE.CANCELLATION_CASE
+  - name: CANCELLATION_CASE
+    source:
+      table: SEAWARE.CANCELLATION_CASE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            case_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_cancellation_case`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY case_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CASE_ID
+            target_column: case_id
+
+  # SEAWARE.CC_CLIENT
+  - name: CC_CLIENT
+    source:
+      table: SEAWARE.CC_CLIENT
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            cc_acc_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_cc_client`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY cc_acc_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CC_ACC_ID
+            target_column: cc_acc_id
+
+  # SEAWARE.CLIENT
+  - name: CLIENT
+    source:
+      table: SEAWARE.CLIENT
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            client_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_client`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY client_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CLIENT_ID
+            target_column: client_id
+
+  # SEAWARE.CLIENT_CLASSIFICATION_LINK
+  - name: CLIENT_CLASSIFICATION_LINK
+    source:
+      table: SEAWARE.CLIENT_CLASSIFICATION_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_client_classification_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.COUNTRY
+  - name: COUNTRY
+    source:
+      table: SEAWARE.COUNTRY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            country_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_country`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY country_code
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COUNTRY_CODE
+            target_column: country_code
+
+  # SEAWARE.ENTITY_INVOICE
+  - name: ENTITY_INVOICE
+    source:
+      table: SEAWARE.ENTITY_INVOICE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_entity_invoice`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GL_TRANS
+  - name: GL_TRANS
+    source:
+      table: SEAWARE.GL_TRANS
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            gl_trans_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_gl_trans`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY gl_trans_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GL_TRANS_ID
+            target_column: gl_trans_id
+
+  # SEAWARE.GROUP_BOOKING
+  - name: GROUP_BOOKING
+    source:
+      table: SEAWARE.GROUP_BOOKING
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            group_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_booking`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY group_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GROUP_ID
+            target_column: group_id
+
+  # SEAWARE.GROUP_COMMISSION_DETAIL
+  - name: GROUP_COMMISSION_DETAIL
+    source:
+      table: SEAWARE.GROUP_COMMISSION_DETAIL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_group_commission_detail`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_DELEGATE_GUEST
+  - name: GROUP_DELEGATE_GUEST
+    source:
+      table: SEAWARE.GROUP_DELEGATE_GUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            delegate_guest_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_delegate_guest`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY delegate_guest_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: DELEGATE_GUEST_ID
+            target_column: delegate_guest_id
+
+  # SEAWARE.GROUP_DELEGATE_HEADER
+  - name: GROUP_DELEGATE_HEADER
+    source:
+      table: SEAWARE.GROUP_DELEGATE_HEADER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            delegate_header_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_delegate_header`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY delegate_header_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: DELEGATE_HEADER_ID
+            target_column: delegate_header_id
+
+  # SEAWARE.GROUP_HISTORY_HEADER
+  - name: GROUP_HISTORY_HEADER
+    source:
+      table: SEAWARE.GROUP_HISTORY_HEADER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            group_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_history_header`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY group_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GROUP_ID
+            target_column: group_id
+
+  # SEAWARE.GROUP_HOTEL_REQUEST
+  - name: GROUP_HOTEL_REQUEST
+    source:
+      table: SEAWARE.GROUP_HOTEL_REQUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_hotel_request`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_INVOICE_ITEM
+  - name: GROUP_INVOICE_ITEM
+    source:
+      table: SEAWARE.GROUP_INVOICE_ITEM
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_invoice_item`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_INVOICE_HISTORY
+  - name: GROUP_INVOICE_HISTORY
+    source:
+      table: SEAWARE.GROUP_INVOICE_HISTORY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            group_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_invoice_history`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY group_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GROUP_ID
+            target_column: group_id
+
+  # SEAWARE.GROUP_SHIP_INV_ALLOC_DESC
+  - name: GROUP_SHIP_INV_ALLOC_DESC
+    source:
+      table: SEAWARE.GROUP_SHIP_INV_ALLOC_DESC
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_ship_inv_alloc_desc`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_SHIP_REQUEST
+  - name: GROUP_SHIP_REQUEST
+    source:
+      table: SEAWARE.GROUP_SHIP_REQUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_ship_request`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.HOTEL
+  - name: HOTEL
+    source:
+      table: SEAWARE.HOTEL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            hotel_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_hotel`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY hotel_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOTEL_ID
+            target_column: hotel_id
+
+  # SEAWARE.HOTEL_ADDRESS
+  - name: HOTEL_ADDRESS
+    source:
+      table: SEAWARE.HOTEL_ADDRESS
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            hotel_addr_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_hotel_address`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY hotel_addr_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOTEL_ADDR_ID
+            target_column: hotel_addr_id
+
+  # SEAWARE.HOTEL_INV_ALLOCATION
+  - name: HOTEL_INV_ALLOCATION
+    source:
+      table: SEAWARE.HOTEL_INV_ALLOCATION
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            allocation_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_hotel_inv_allocation`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY allocation_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ALLOCATION_ID
+            target_column: allocation_id
+
+  # SEAWARE.HOUSEHOLD_ADDRESS
+  - name: HOUSEHOLD_ADDRESS
+    source:
+      table: SEAWARE.HOUSEHOLD_ADDRESS
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            household_addr_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_household_address`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY household_addr_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOUSEHOLD_ADDR_ID
+            target_column: household_addr_id
+
+  # SEAWARE.HOUSEHOLD_PHONE
+  - name: HOUSEHOLD_PHONE
+    source:
+      table: SEAWARE.HOUSEHOLD_PHONE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            household_phone_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_household_phone`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY household_phone_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOUSEHOLD_PHONE_ID
+            target_column: household_phone_id
+
+  # SEAWARE.INVOICE_ITEM_TYPE
+  - name: INVOICE_ITEM_TYPE
+    source:
+      table: SEAWARE.INVOICE_ITEM_TYPE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            invoice_item_type,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_invoice_item_type`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY invoice_item_type
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: INVOICE_ITEM_TYPE
+            target_column: invoice_item_type
+
+  # SEAWARE.PACKAGE_CLASS_LINK
+  - name: PACKAGE_CLASS_LINK
+    source:
+      table: SEAWARE.PACKAGE_CLASS_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_class_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.PACKAGE_DEFINITION
+  - name: PACKAGE_DEFINITION
+    source:
+      table: SEAWARE.PACKAGE_DEFINITION
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            package_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_definition`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY package_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PACKAGE_ID
+            target_column: package_id
+
+  # SEAWARE.PACKAGE_ITINERARY
+  - name: PACKAGE_ITINERARY
+    source:
+      table: SEAWARE.PACKAGE_ITINERARY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            itin_record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_package_itinerary`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY itin_record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ITIN_RECORD_ID
+            target_column: itin_record_id
+
+  # SEAWARE.PACKAGE_TYPE
+  - name: PACKAGE_TYPE
+    source:
+      table: SEAWARE.PACKAGE_TYPE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            package_type,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_type`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY package_type
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PACKAGE_TYPE
+            target_column: package_type
+
+  # SEAWARE.PACKAGE_TYPE_VENDOR_LINK
+  - name: PACKAGE_TYPE_VENDOR_LINK
+    source:
+      table: SEAWARE.PACKAGE_TYPE_VENDOR_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_type_vendor_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.PAP_MASTER
+  - name: PAP_MASTER
+    source:
+      table: SEAWARE.PAP_MASTER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            pap_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_pap_master`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY pap_code
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PAP_CODE
+            target_column: pap_code
+
+  # SEAWARE.PASSENGER
+  - name: PASSENGER
+    source:
+      table: SEAWARE.PASSENGER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            pax_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_passenger`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY pax_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PAX_ID
+            target_column: pax_id
+
+  # SEAWARE.RES_ADDON
+  - name: RES_ADDON
+    source:
+      table: SEAWARE.RES_ADDON
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_addon_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_addon`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_addon_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_ADDON_ID
+            target_column: res_addon_id
+
+  # SEAWARE.RES_CHARGEABLE_ACTION
+  - name: RES_CHARGEABLE_ACTION
+    source:
+      table: SEAWARE.RES_CHARGEABLE_ACTION
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            action_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_res_chargeable_action`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY action_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ACTION_ID
+            target_column: action_id
+
+  # SEAWARE.RES_CHARGE_COMMISSION
+  - name: RES_CHARGE_COMMISSION
+    source:
+      table: SEAWARE.RES_CHARGE_COMMISSION
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_charge_commission`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_CHARGE_DETAIL
+  - name: RES_CHARGE_DETAIL
+    source:
+      table: SEAWARE.RES_CHARGE_DETAIL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            charge_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_res_charge_detail`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY charge_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CHARGE_ID
+            target_column: charge_id
+
+  # SEAWARE.RES_CHARGE_SUBDETAIL
+  - name: RES_CHARGE_SUBDETAIL
+    source:
+      table: SEAWARE.RES_CHARGE_SUBDETAIL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_res_charge_subdetail`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_COMMISSION_CANCEL
+  - name: RES_COMMISSION_CANCEL
+    source:
+      table: SEAWARE.RES_COMMISSION_CANCEL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_commiss_detail_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_res_commission_cancel`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_commiss_detail_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_COMMISS_DETAIL_ID
+            target_column: res_commiss_detail_id
+
+  # SEAWARE.RES_COMMISSION_DETAIL
+  - name: RES_COMMISSION_DETAIL
+    source:
+      table: SEAWARE.RES_COMMISSION_DETAIL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_commiss_detail_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_commission_detail`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_commiss_detail_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_COMMISS_DETAIL_ID
+            target_column: res_commiss_detail_id
+
+  # SEAWARE.RES_EVENT
+  - name: RES_EVENT
+    source:
+      table: SEAWARE.RES_EVENT
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_event`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_GUEST
+  - name: RES_GUEST
+    source:
+      table: SEAWARE.RES_GUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            guest_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_guest`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY guest_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GUEST_ID
+            target_column: guest_id
+
+  # SEAWARE.RES_GUEST_IN_ROOM
+  - name: RES_GUEST_IN_ROOM
+    source:
+      table: SEAWARE.RES_GUEST_IN_ROOM
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_guest_in_room`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_HEADER
+  - name: RES_HEADER
+    source:
+      table: SEAWARE.RES_HEADER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_ID
+            target_column: res_id
+
+  # SEAWARE.RES_HISTORY
+  - name: RES_HISTORY
+    source:
+      table: SEAWARE.RES_HISTORY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            trans_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_history`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY trans_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRANS_ID
+            target_column: trans_id
+
+  # SEAWARE.RES_HOTEL_REQUEST
+  - name: RES_HOTEL_REQUEST
+    source:
+      table: SEAWARE.RES_HOTEL_REQUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            hotel_request_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_hotel_request`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY hotel_request_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOTEL_REQUEST_ID
+            target_column: hotel_request_id
+
+  # SEAWARE.RES_INVOICE_CANC
+  - name: RES_INVOICE_CANC
+    source:
+      table: SEAWARE.RES_INVOICE_CANC
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_invoice_item_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_invoice_canc`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_invoice_item_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_INVOICE_ITEM_ID
+            target_column: res_invoice_item_id
+
+  # SEAWARE.RES_INVOICE_ITEM
+  - name: RES_INVOICE_ITEM
+    source:
+      table: SEAWARE.RES_INVOICE_ITEM
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_invoice_item_id,
+            op
+          FROM prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_invoice_item
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_invoice_item_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0             
+        rules:
+          - method: distinct_count
+            source_column: RES_INVOICE_ITEM_ID
+            target_column: res_invoice_item_id
+
+  # SEAWARE.RES_PACKAGE
+  - name: RES_PACKAGE
+    source:
+      table: SEAWARE.RES_PACKAGE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_package_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_package`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_package_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_PACKAGE_ID
+            target_column: res_package_id
+
+  # SEAWARE.RES_PAYMENT_DUE_ITEM
+  - name: RES_PAYMENT_DUE_ITEM
+    source:
+      table: SEAWARE.RES_PAYMENT_DUE_ITEM
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_payment_due_item_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_payment_due_item`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_payment_due_item_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_PAYMENT_DUE_ITEM_ID
+            target_column: res_payment_due_item_id
+
+  # SEAWARE.RES_PROMOTION
+  - name: RES_PROMOTION
+    source:
+      table: SEAWARE.RES_PROMOTION
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_promo_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_promotion`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_promo_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_PROMO_ID
+            target_column: res_promo_id
+
+  # SEAWARE.RES_PROTECTED_COMMISSION
+  - name: RES_PROTECTED_COMMISSION
+    source:
+      table: SEAWARE.RES_PROTECTED_COMMISSION
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_protected_commission`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_ROOM_REQUEST
+  - name: RES_ROOM_REQUEST
+    source:
+      table: SEAWARE.RES_ROOM_REQUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            room_request_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_room_request`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY room_request_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ROOM_REQUEST_ID
+            target_column: room_request_id
+
+  # SEAWARE.RES_SHIP_REQUEST
+  - name: RES_SHIP_REQUEST
+    source:
+      table: SEAWARE.RES_SHIP_REQUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            ship_request_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_ship_request`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY ship_request_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SHIP_REQUEST_ID
+            target_column: ship_request_id
+
+  # SEAWARE.RES_USER_NOTES
+  - name: RES_USER_NOTES
+    source:
+      table: SEAWARE.RES_USER_NOTES
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_user_notes`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.REVENUE_FORECAST_VERSION
+  - name: REVENUE_FORECAST_VERSION
+    source:
+      table: SEAWARE.REVENUE_FORECAST_VERSION
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            forecast_version,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_revenue_forecast_version`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY forecast_version
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: FORECAST_VERSION
+            target_column: forecast_version
+
+  # SEAWARE.REVENUE_TARGET_HEADER
+  - name: REVENUE_TARGET_HEADER
+    source:
+      table: SEAWARE.REVENUE_TARGET_HEADER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_revenue_target_header`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.REVENUE_TARGET_VALUE
+  - name: REVENUE_TARGET_VALUE
+    source:
+      table: SEAWARE.REVENUE_TARGET_VALUE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_revenue_target_value`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SAIL_ACTIVITY
+  - name: SAIL_ACTIVITY
+    source:
+      table: SEAWARE.SAIL_ACTIVITY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            sail_activity_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_sail_activity`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY sail_activity_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SAIL_ACTIVITY_ID
+            target_column: sail_activity_id
+
+  # SEAWARE.SAIL_HEADER
+  - name: SAIL_HEADER
+    source:
+      table: SEAWARE.SAIL_HEADER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            sail_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_sail_header`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY sail_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SAIL_ID
+            target_column: sail_id
+
+  # SEAWARE.SHIP
+  - name: SHIP
+    source:
+      table: SEAWARE.SHIP
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            ship_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_ship`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY ship_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SHIP_ID
+            target_column: ship_id
+
+  # SEAWARE.SHIP_CABIN
+  - name: SHIP_CABIN
+    source:
+      table: SEAWARE.SHIP_CABIN
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            cabin_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_cabin`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY cabin_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CABIN_ID
+            target_column: cabin_id
+
+  # SEAWARE.SHIP_CABIN_CTG_LINK
+  - name: SHIP_CABIN_CTG_LINK
+    source:
+      table: SEAWARE.SHIP_CABIN_CTG_LINK
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_ship_cabin_ctg_link`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SHIP_CABIN_RESERVE
+  - name: SHIP_CABIN_RESERVE
+    source:
+      table: SEAWARE.SHIP_CABIN_RESERVE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_cabin_reserve`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SHIP_DINING_ALLOC
+  - name: SHIP_DINING_ALLOC
+    source:
+      table: SEAWARE.SHIP_DINING_ALLOC
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            allocation_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_dining_alloc`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY allocation_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ALLOCATION_ID
+            target_column: allocation_id
+
+  # SEAWARE.SHIP_DINING_REQUEST
+  - name: SHIP_DINING_REQUEST
+    source:
+      table: SEAWARE.SHIP_DINING_REQUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            request_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_dining_request`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY request_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: REQUEST_ID
+            target_column: request_id
+
+  # SEAWARE.SHIP_FACILITY
+  - name: SHIP_FACILITY
+    source:
+      table: SEAWARE.SHIP_FACILITY
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            facility_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_ship_facility`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY facility_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: FACILITY_ID
+            target_column: facility_id
+
+  # SEAWARE.SHIP_INVENTORY_ALLOC
+  - name: SHIP_INVENTORY_ALLOC
+    source:
+      table: SEAWARE.SHIP_INVENTORY_ALLOC
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            allocation_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_inventory_alloc`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY allocation_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ALLOCATION_ID
+            target_column: allocation_id
+
+  # SEAWARE.SHIP_NESTED_CABIN_CTG
+  - name: SHIP_NESTED_CABIN_CTG
+    source:
+      table: SEAWARE.SHIP_NESTED_CABIN_CTG
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_nested_cabin_ctg`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SHIP_NESTED_CAB_CTGTO
+  - name: SHIP_NESTED_CAB_CTGTO
+    source:
+      table: SEAWARE.SHIP_NESTED_CAB_CTGTO
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            nested_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_nested_cab_ctgto`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY nested_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: NESTED_ID
+            target_column: nested_id
+
+  # SEAWARE.SHIP_ROOM_REQUEST
+  - name: SHIP_ROOM_REQUEST
+    source:
+      table: SEAWARE.SHIP_ROOM_REQUEST
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            request_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_room_request`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY request_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: REQUEST_ID
+            target_column: request_id
+
+  # SEAWARE.TRW_DETAIL
+  - name: TRW_DETAIL
+    source:
+      table: SEAWARE.TRW_DETAIL
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            trw_detail_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_trw_detail`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY trw_detail_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRW_DETAIL_ID
+            target_column: trw_detail_id
+
+  # SEAWARE.TRW_HEADER
+  - name: TRW_HEADER
+    source:
+      table: SEAWARE.TRW_HEADER
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            trw_header_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_trw_header`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY trw_header_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRW_HEADER_ID
+            target_column: trw_header_id
+
+  # SEAWARE.VCS_ADDITIONAL_FIELD_VALUE
+  - name: VCS_ADDITIONAL_FIELD_VALUE
+    source:
+      table: SEAWARE.VCS_ADDITIONAL_FIELD_VALUE
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_vcs_additional_field_value`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ID
+            target_column: id
+
+  # SEAWARE.VENDOR
+  - name: VENDOR
+    source:
+      table: SEAWARE.VENDOR
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            vendor_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_nbx_parse_sw_rpl_vendor`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY vendor_code
+            ORDER BY ts_ms DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: VENDOR_CODE
+            target_column: vendor_code
+
+  # SEAWARE.VV_VOYAGE_PRICING
+  - name: VV_VOYAGE_PRICING
+    source:
+      table: SEAWARE.VV_VOYAGE_PRICING
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_vv_voyage_pricing`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+# Not found in Oracle/SEAWARE database tables :
+# SEAWARE.RES_PACKAGE_STUB
+
+# Not found in BQ tables :
+# SEAWARE.GROUP_SHIP_REQUEST_DESC
+# SEAWARE.PACKAGE_CLASS_CODE
+# SEAWARE.PACKAGE_ITIN_PACKAGE_LINK
+# SEAWARE.RELATIONSHIP
+# SEAWARE.SHIP_CABIN_RESERVE_TYPE
+# SEAWARE.AGENCY_INVOICING_BALANCE
+
+# Empty tables :
+# SEAWARE.AGENCY_REGION_LINK
+# SEAWARE.AIRPORT_ADDRESS
+# SEAWARE.REGION
+# SEAWARE.SHIP_ROOM
+# SEAWARE.SHIP_ROOM_ALLOC
+# SEAWARE.VV_VOYAGE_TAXES
+# SEAWARE.RES_LOCK
+
+# run example:
+# python -m  src.main --filetype yaml --config-file sw_full --env prod --run_label sw_full_run
