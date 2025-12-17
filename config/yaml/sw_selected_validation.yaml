@@ -7,6 +7,22 @@ connections:
 results_storage:
   mismatch_csv:
     enabled: true
+  # Mismatch IDs detection and export configuration
+  # Exports actual IDs that differ between source and target
+  mismatch_ids:
+    enabled: true
+    backend: gcs
+    bucket: dqf-results
+    base_path: mismatch_ids
+    public_url_prefix: https://storage.cloud.google.com/dqf-results
+    # Path template: {config_file}/{check_name}/{table_name}-{date}.csv
+    path_template: "{config_file}/{check_name}/{table_name}-{date}.csv"
+    # Maximum IDs to export per type (missing_in_target, extra_in_target)
+    max_ids: 100000
+    # Chunk size for ID fetching (optimized for 10M+ rows)
+    chunk_size: 500000
+    # Export separate CSVs for missing and extra IDs
+    separate_files: false
   runs:
     enabled: true
     backend: bigquery
@@ -43,7 +59,9 @@ tables:
         WHERE op != 'd'
     checks:
       - type: row_count
-        id_column: VENDOR_CODE
+        # ID columns for source (Oracle - uppercase) and target (BigQuery - lowercase)
+        id_column_source: VENDOR_CODE
+        id_column_target: vendor_code
         mismatch_sampling:
           mode: chunk
           chunk_size: 200000
@@ -69,12 +87,13 @@ tables:
         WHERE op != 'd'
     checks:
       - type: row_count
-        id_column: NESTED_ID
+        id_column_source: NESTED_ID
+        id_column_target: nested_id
         mismatch_sampling:
           mode: binary
-          max_depth: 6
-          max_ranges: 8
-          max_scan_chunks: 40
+          max_depth: 8
+          max_ranges: 10
+          max_scan_chunks: 60
 
   - name: RES_USER_NOTES_VALIDATION
     source:
@@ -95,12 +114,13 @@ tables:
         WHERE op != 'd'
     checks:
       - type: row_count
-        id_column: RECORD_ID
+        id_column_source: RECORD_ID
+        id_column_target: record_id
         mismatch_sampling:
           mode: binary
-          max_depth: 6
+          max_depth: 8
           max_ranges: 10
-          max_scan_chunks: 40
+          max_scan_chunks: 60
 
   - name: GROUP_SHIP_INV_ALLOC_DESC_VALIDATION
     source:
@@ -121,12 +141,13 @@ tables:
         WHERE op != 'd'
     checks:
       - type: row_count
-        id_column: RECORD_ID
+        id_column_source: RECORD_ID
+        id_column_target: record_id
         mismatch_sampling:
           mode: chunk
-          chunk_size: 200000
+          chunk_size: 500000
           max_ranges: 10
-          max_scan_chunks: 60
+          max_scan_chunks: 80
 
 # run example:
 # python -m  src.main --filetype yaml --config-file sw_selected_validation --env cert --run_label sw_selected_validation_run

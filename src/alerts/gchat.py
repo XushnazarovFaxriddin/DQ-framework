@@ -8,7 +8,12 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-from src.render.gchat_cards import build_run_card, context_lines
+from src.render.gchat_cards import (
+    build_run_card,
+    context_lines,
+    _has_extra_in_target,
+    _get_extra_in_target_count,
+)
 from src.render.mismatch_links import csv_links_for_check
 from src.runtime.registry import register_alert
 from src.runtime.results import RunResult
@@ -57,6 +62,18 @@ def send_gchat(
         context_lines_list = context_lines(context_meta)
         if context_lines_list:
             lines.append("Context: " + "; ".join(context_lines_list))
+
+        # Check for critical extra_in_target issues
+        extra_in_target_checks = [c for c in result.checks if _has_extra_in_target(c)]
+        if extra_in_target_checks:
+            lines.append("")
+            lines.append("🚨 CRITICAL DATA INTEGRITY ALERT 🚨")
+            lines.append("Target database contains records that DO NOT EXIST in source!")
+            for check in extra_in_target_checks[:5]:
+                count = _get_extra_in_target_count(check)
+                lines.append(f"  - {check.table}/{check.check_type}: {count} extra records in target")
+            lines.append("")
+
         for check in result.checks[:max_checks]:
             severity_note = ""
             if check.status == "FAIL":

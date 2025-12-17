@@ -114,6 +114,111 @@ def _metric_summary(details: Mapping[str, Any]) -> Optional[str]:
     return " | ".join(segments) if segments else None
 
 
+def _has_extra_in_target(check: "CheckResult") -> bool:
+    """Check if this check result has extra_in_target (critical data integrity issue)."""
+    if not isinstance(check.details, Mapping):
+        return False
+    if check.details.get("has_extra_in_target"):
+        return True
+    # Check in rules for aggregations
+    rules = check.details.get("rules", [])
+    for rule in rules:
+        if isinstance(rule, Mapping) and rule.get("has_extra_in_target"):
+            return True
+    return False
+
+
+def _get_extra_in_target_count(check: "CheckResult") -> int:
+    """Get count of extra records in target."""
+    if not isinstance(check.details, Mapping):
+        return 0
+    count = check.details.get("extra_in_target_count", 0)
+    if count:
+        return int(count)
+    # Check in rules for aggregations
+    rules = check.details.get("rules", [])
+    total = 0
+    for rule in rules:
+        if isinstance(rule, Mapping):
+            total += int(rule.get("extra_in_target_count", 0))
+    return total
+
+
+def _get_extra_in_target_csv_uri(check: "CheckResult") -> Optional[str]:
+    """Get CSV URI for extra_in_target records."""
+    if not isinstance(check.details, Mapping):
+        return None
+    uri = check.details.get("extra_in_target_csv_uri")
+    if uri:
+        return uri
+    # Check in rules for aggregations
+    rules = check.details.get("rules", [])
+    for rule in rules:
+        if isinstance(rule, Mapping):
+            rule_uri = rule.get("extra_in_target_csv_uri")
+            if rule_uri:
+                return rule_uri
+    return None
+
+
+def _build_extra_in_target_section(checks: List["CheckResult"]) -> Optional[Dict[str, Any]]:
+    """
+    Build a critical alert section for checks that have extra records in target.
+
+    This is a data integrity issue - target has records that don't exist in source.
+    """
+    critical_checks = [c for c in checks if _has_extra_in_target(c)]
+    if not critical_checks:
+        return None
+
+    widgets: List[Dict[str, Any]] = []
+
+    # Warning header
+    widgets.append({
+        "textParagraph": {
+            "text": (
+                '<font color="#CC0000"><b>⚠️ CRITICAL DATA INTEGRITY ALERT</b></font><br>'
+                '<font color="#CC0000">Target database contains records that DO NOT EXIST in source!</font><br>'
+                'This may indicate: orphaned records, replication issues, or unauthorized data insertion.'
+            )
+        }
+    })
+
+    # List affected tables
+    for check in critical_checks[:10]:  # Limit to 10
+        count = _get_extra_in_target_count(check)
+        csv_uri = _get_extra_in_target_csv_uri(check)
+
+        text_lines = [
+            f"<b>Table:</b> {check.table}",
+            f"<b>Check:</b> {check.check_type}",
+            f"<b>Extra records in target:</b> {count}",
+        ]
+
+        if csv_uri:
+            console_uri = _console_uri(csv_uri)
+            text_lines.append(f'<b>CSV:</b> <a href="{console_uri}">Download extra IDs</a>')
+
+        widgets.append({"textParagraph": {"text": "<br>".join(text_lines)}})
+
+        if csv_uri:
+            widgets.append({
+                "buttonList": {
+                    "buttons": [
+                        {
+                            "text": "🚨 Download Extra IDs CSV",
+                            "onClick": {"openLink": {"url": _console_uri(csv_uri)}},
+                        }
+                    ]
+                }
+            })
+
+    return {
+        "header": "🚨 CRITICAL: Extra Records in Target",
+        "widgets": widgets,
+    }
+
+
 _CONFIG_FIELDS: List[tuple[str, str]] = [
     ("on", "on"),
     ("tolerance_pct", "tol_pct"),
@@ -335,15 +440,24 @@ def build_run_card(
                 widgets.append(link_widget)
             links_rendered.add(check_idx)
 
+    # Build sections
+    sections: List[Dict[str, Any]] = []
+
+    # Add critical "Extra in Target" section first if applicable
+    extra_section = _build_extra_in_target_section(result.checks)
+    if extra_section:
+        sections.append(extra_section)
+
+    # Add failed validations section
+    sections.append({"header": "Failed Validations", "widgets": widgets})
+
     return {
         "cardsV2": [
             {
                 "cardId": "run_summary",
                 "card": {
                     "header": header,
-                    "sections": [
-                        {"header": "Failed Validations", "widgets": widgets}
-                    ],
+                    "sections": sections,
                 },
             }
         ]

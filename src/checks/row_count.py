@@ -1,4 +1,4 @@
-"""Row count parity check."""
+"""Row count parity check with mismatch IDs detection."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from src.runtime.registry import register_check
 from src.runtime.results import CheckResult
 from src.utils.io import attach_csv_uri
 from src.utils.logger import log
+from src.utils.mismatch_ids import detect_mismatch_ids, MismatchIdsResult
 from src.utils.mismatch_sampling import MismatchSamplingResult, sample_mismatch_ranges
 from src.utils.sql import wrap_order_by
 
@@ -68,8 +69,11 @@ class RowCountCheck(BaseCheck):
             details["config_summary"] = config_summary
 
         mismatch_result: Optional[MismatchSamplingResult] = None
+        mismatch_ids_result: Optional[MismatchIdsResult] = None
         sampling_cfg = self.check_cfg.mismatch_sampling
+
         if status == "FAIL" and sampling_cfg:
+            # Traditional range-based mismatch sampling
             mismatch_result = _maybe_sample_ranges(
                 self,
                 source_base_sql,
@@ -85,6 +89,17 @@ class RowCountCheck(BaseCheck):
                     mismatch_result,
                 ):
                     attach_csv_uri(details, uri)
+
+            # Detect and export actual mismatch IDs
+            mismatch_ids_result = _maybe_detect_mismatch_ids(
+                self,
+                source_base_sql,
+                target_base_sql,
+            )
+            if mismatch_ids_result:
+                # Get config file name from vars_map
+                config_file = self.vars_map.get("config_file", "")
+                self.persist_mismatch_ids(mismatch_ids_result, details, config_file)
 
         return CheckResult(
             table=self.table_cfg.name,
@@ -171,3 +186,64 @@ def _build_config_summary(
         if sampling_cfg.mode == "chunk" and sampling_cfg.chunk_size:
             summary["chunk_size"] = sampling_cfg.chunk_size
     return summary
+
+
+def _maybe_detect_mismatch_ids(
+    check: RowCountCheck,
+    source_base_sql: str,
+    target_base_sql: str,
+) -> Optional[MismatchIdsResult]:
+    """
+    Detect actual mismatch IDs between source and target.
+
+    This identifies:
+    - IDs in source but missing in target (missing_in_target)
+    - IDs in target but missing in source (extra_in_target) - CRITICAL
+    """
+    sampling_cfg = check.check_cfg.mismatch_sampling
+    if not sampling_cfg:
+        return None
+
+    source_id, target_id = _resolve_id_columns(check.check_cfg)
+    if not source_id or not target_id:
+        log(
+            "mismatch_ids.skipped",
+            table=check.table_cfg.name,
+            check="row_count",
+            reason="missing_id_column",
+        )
+        return None
+
+    # Check if mismatch_ids export is enabled
+    mismatch_ids_cfg = (
+        check.results_storage_cfg.mismatch_ids
+        if check.results_storage_cfg
+        else None
+    )
+    if not mismatch_ids_cfg or not mismatch_ids_cfg.enabled:
+        return None
+
+    try:
+        config_file = check.vars_map.get("config_file", "")
+        return detect_mismatch_ids(
+            source=check.source,
+            target=check.target,
+            source_base_sql=source_base_sql,
+            target_base_sql=target_base_sql,
+            id_column_source=source_id,
+            id_column_target=target_id,
+            sampling_cfg=sampling_cfg,
+            table_name=check.table_cfg.name,
+            check_name="row_count",
+            config_file=config_file,
+            max_ids=mismatch_ids_cfg.max_ids,
+        )
+    except Exception as exc:
+        log(
+            "mismatch_ids.error",
+            level="ERROR",
+            table=check.table_cfg.name,
+            check="row_count",
+            error=str(exc),
+        )
+        return None

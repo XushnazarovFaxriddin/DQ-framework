@@ -55,6 +55,19 @@ def _default_results_public_url_prefix() -> Optional[str]:
     return _env_str("DQF_RESULTS_PUBLIC_URL_PREFIX", None)
 
 
+def _default_mismatch_ids_chunk_size() -> int:
+    return _env_int("DQF_MISMATCH_IDS_CHUNK_SIZE", 500_000)
+
+
+def _default_mismatch_ids_max_ids() -> int:
+    return _env_int("DQF_MISMATCH_IDS_MAX_IDS", 100_000)
+
+
+def _default_mismatch_ids_enabled() -> bool:
+    val = os.getenv("DQF_MISMATCH_IDS_ENABLED", "true")
+    return val.lower() in ("true", "1", "yes")
+
+
 class HashingCfg(BaseModel):
     """
     Hashing policy for cross-engine consistency.
@@ -164,6 +177,50 @@ class MismatchCsvCfg(BaseModel):
     public_url_prefix: Optional[str] = Field(
         default_factory=_default_results_public_url_prefix
     )
+    # Path template for mismatch IDs CSV files
+    # Supports: {config_file}, {check_name}, {table_name}, {date}, {timestamp}
+    # Example: "{config_file}/{check_name}/{table_name}-{date}.csv"
+    path_template: Optional[str] = None
+
+
+class MismatchIdsCfg(BaseModel):
+    """
+    Configuration for mismatch IDs detection and export.
+
+    When row_count/aggregations[count]/aggregations[distinct_count] checks fail,
+    this enables finding and exporting the actual mismatched IDs to GCS/local storage.
+
+    Features:
+    - Detects IDs present in source but missing in target (missing_in_target)
+    - Detects IDs present in target but missing in source (extra_in_target) - CRITICAL
+    - Exports to CSV with dashboard-ready metadata
+    - Optimized for 10M+ rows using chunked/binary algorithms
+
+    Path template variables:
+    - {config_file}: Name of the config file (e.g., "sw_selected_validation")
+    - {check_name}: Type of check (e.g., "row_count", "aggregations")
+    - {table_name}: Name of the table being validated
+    - {date}: Date in YYYYMMDD_HHMMSS format (EST timezone)
+    - {timestamp}: Unix timestamp
+
+    Example path_template: "{config_file}/{check_name}/{table_name}-{date}.csv"
+    """
+
+    enabled: bool = Field(default_factory=_default_mismatch_ids_enabled)
+    backend: Literal["local", "gcs"] = Field(default_factory=_default_results_backend)
+    bucket: Optional[str] = Field(default_factory=_default_results_bucket)
+    base_path: str = Field(default_factory=_default_results_base_path)
+    public_url_prefix: Optional[str] = Field(
+        default_factory=_default_results_public_url_prefix
+    )
+    # Path template for CSV files
+    path_template: str = "{config_file}/{check_name}/{table_name}-{date}.csv"
+    # Maximum IDs to export per mismatch type
+    max_ids: int = Field(default_factory=_default_mismatch_ids_max_ids)
+    # Chunk size for ID fetching (memory efficiency)
+    chunk_size: int = Field(default_factory=_default_mismatch_ids_chunk_size)
+    # Export separate CSVs for missing_in_target and extra_in_target
+    separate_files: bool = False
 
 
 class SeverityRuleCfg(BaseModel):
@@ -346,6 +403,7 @@ class ResultsTableCfg(BaseModel):
 
 class ResultsStorageCfg(BaseModel):
     mismatch_csv: Optional[MismatchCsvCfg] = None
+    mismatch_ids: Optional[MismatchIdsCfg] = None
     runs: Optional[ResultsTableCfg] = None
     checks: Optional[ResultsTableCfg] = None
 

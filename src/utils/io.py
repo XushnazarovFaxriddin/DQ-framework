@@ -2,6 +2,7 @@
 Artifacts IO utilities:
 - Save CSV/Parquet previews into a local artifacts directory.
 - Store mismatch CSVs in pluggable storage backends.
+- Export mismatch IDs with templated paths for dashboard integration.
 
 Env:
   DQF_ARTIFACTS_DIR: base directory for artifacts (default: ./artifacts)
@@ -10,18 +11,22 @@ Env:
 import csv
 import io as io_module
 import os
+import time
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Mapping as MappingABC
-from datetime import datetime
-from typing import Any, Dict, Mapping, Optional, Sequence
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from src.compiler.schema import MismatchCsvCfg
+from src.compiler.schema import MismatchCsvCfg, MismatchIdsCfg
 from src.utils.logger import log
+
+if TYPE_CHECKING:
+    from src.utils.mismatch_ids import MismatchIdsResult
 
 
 def _artifacts_dir() -> str:
@@ -211,3 +216,186 @@ def attach_csv_uri(details: Dict[str, Any], uri: str) -> None:
     if uri not in uris:
         uris.append(uri)
     details.setdefault("mismatch_csv_uri", uris[0])
+
+
+def _get_est_datetime() -> datetime:
+    """Get current datetime in EST timezone."""
+    try:
+        from zoneinfo import ZoneInfo
+        est = ZoneInfo("America/New_York")
+    except ImportError:
+        # Fallback for Python < 3.9
+        from datetime import timedelta
+        est_offset = timedelta(hours=-5)
+
+        class EST(timezone):
+            def __init__(self):
+                super().__init__(est_offset, "EST")
+
+        est = EST()
+
+    return datetime.now(est)
+
+
+def _build_templated_path(
+    template: str,
+    *,
+    config_file: str = "",
+    check_name: str = "",
+    table_name: str = "",
+) -> str:
+    """
+    Build file path from template with variable substitution.
+
+    Supported variables:
+    - {config_file}: Name of the config file (without extension)
+    - {check_name}: Type of check (e.g., "row_count", "aggregations")
+    - {table_name}: Name of the table being validated
+    - {date}: Date in YYYYMMDD_HHMMSS format (EST timezone)
+    - {timestamp}: Unix timestamp
+    - {uuid}: Short UUID for uniqueness
+
+    Example: "{config_file}/{check_name}/{table_name}-{date}.csv"
+    """
+    est_now = _get_est_datetime()
+    date_str = est_now.strftime("%Y%m%d_%H%M%S")
+    timestamp = int(time.time())
+    uid = uuid.uuid4().hex[:8]
+
+    # Clean inputs
+    config_file_clean = _slugify(config_file) if config_file else "default"
+    check_name_clean = _slugify(check_name) if check_name else "check"
+    table_name_clean = _slugify(table_name) if table_name else "table"
+
+    path = template.format(
+        config_file=config_file_clean,
+        check_name=check_name_clean,
+        table_name=table_name_clean,
+        date=date_str,
+        timestamp=timestamp,
+        uuid=uid,
+    )
+
+    return path
+
+
+def _build_mismatch_ids_storage_backend(cfg: MismatchIdsCfg) -> StorageBackend:
+    """Build storage backend for mismatch IDs export."""
+    base_path = cfg.base_path or ""
+    if cfg.backend == "gcs":
+        if not cfg.bucket:
+            raise ValueError("GCS backend configured but 'bucket' is missing")
+        try:
+            return GCSStorageBackend(
+                bucket=cfg.bucket,
+                base_path=base_path,
+                public_url_prefix=cfg.public_url_prefix,
+            )
+        except Exception as exc:
+            log(
+                "mismatch_ids.backend.fallback",
+                level="WARNING",
+                backend="gcs",
+                error=str(exc),
+                action="using_local_storage",
+            )
+            return LocalStorageBackend(base_path=base_path, public_url_prefix=None)
+    return LocalStorageBackend(base_path=base_path, public_url_prefix=cfg.public_url_prefix)
+
+
+def persist_mismatch_ids_csv(
+    *,
+    mismatch_result: "MismatchIdsResult",
+    cfg: Optional[MismatchIdsCfg],
+    config_file: str = "",
+    check_name: str = "",
+    table_name: str = "",
+) -> Optional[Dict[str, str]]:
+    """
+    Persist mismatch IDs to CSV with templated path.
+
+    Returns dict with:
+    - combined_uri: URI to combined CSV (all mismatches)
+    - missing_in_target_uri: URI to missing IDs CSV (if separate_files=True)
+    - extra_in_target_uri: URI to extra IDs CSV (if separate_files=True)
+    """
+    if not cfg or not cfg.enabled:
+        return None
+
+    if not mismatch_result:
+        return None
+
+    rows = mismatch_result.to_csv_rows()
+    if not rows:
+        return None
+
+    backend = _build_mismatch_ids_storage_backend(cfg)
+    result_uris: Dict[str, str] = {}
+
+    # Build path from template
+    file_path = _build_templated_path(
+        cfg.path_template,
+        config_file=config_file,
+        check_name=check_name,
+        table_name=table_name,
+    )
+
+    # Export combined CSV
+    csv_bytes = _rows_to_csv_bytes(rows)
+    if csv_bytes:
+        uri = backend.upload(file_path, csv_bytes)
+        result_uris["combined_uri"] = uri
+        log(
+            "mismatch_ids.csv.exported",
+            table=table_name,
+            check=check_name,
+            uri=uri,
+            total_rows=len(rows),
+            missing_in_target=mismatch_result.missing_in_target_count,
+            extra_in_target=mismatch_result.extra_in_target_count,
+        )
+
+    # Export separate files if configured
+    if cfg.separate_files:
+        # Missing in target
+        missing_rows = [r for r in rows if r.get("mismatch_type") == "missing_in_target"]
+        if missing_rows:
+            missing_path = file_path.replace(".csv", "-missing_in_target.csv")
+            missing_bytes = _rows_to_csv_bytes(missing_rows)
+            if missing_bytes:
+                result_uris["missing_in_target_uri"] = backend.upload(missing_path, missing_bytes)
+
+        # Extra in target (CRITICAL)
+        extra_rows = [r for r in rows if r.get("mismatch_type") == "extra_in_target"]
+        if extra_rows:
+            extra_path = file_path.replace(".csv", "-extra_in_target.csv")
+            extra_bytes = _rows_to_csv_bytes(extra_rows)
+            if extra_bytes:
+                result_uris["extra_in_target_uri"] = backend.upload(extra_path, extra_bytes)
+                log(
+                    "mismatch_ids.critical.exported",
+                    level="WARNING",
+                    table=table_name,
+                    check=check_name,
+                    uri=result_uris["extra_in_target_uri"],
+                    extra_in_target_count=len(extra_rows),
+                    message="CRITICAL: Exported IDs that exist in target but not in source",
+                )
+
+    return result_uris if result_uris else None
+
+
+def attach_mismatch_ids_uris(details: Dict[str, Any], uris: Dict[str, str]) -> None:
+    """Attach mismatch IDs URIs to check result details."""
+    if not uris:
+        return
+
+    details["mismatch_ids_uris"] = uris
+
+    if "combined_uri" in uris:
+        # Also add to standard mismatch_csv_uris for compatibility
+        attach_csv_uri(details, uris["combined_uri"])
+
+    if "extra_in_target_uri" in uris:
+        details["extra_in_target_csv_uri"] = uris["extra_in_target_uri"]
+        details["has_extra_in_target"] = True

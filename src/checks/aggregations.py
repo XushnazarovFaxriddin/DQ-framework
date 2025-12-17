@@ -1,4 +1,4 @@
-"""Aggregations check with support for source_column and target_column."""
+"""Aggregations check with support for source_column and target_column and mismatch IDs detection."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from src.runtime.registry import register_check
 from src.runtime.results import CheckResult
 from src.utils.io import attach_csv_uri
 from src.utils.logger import log
+from src.utils.mismatch_ids import detect_mismatch_ids, MismatchIdsResult
 from src.utils.mismatch_sampling import MismatchSamplingResult, sample_mismatch_ranges
 from src.utils.sql import wrap_order_by
 
@@ -164,6 +165,8 @@ class AggregationsCheck(BaseCheck):
             mismatch_cfg = _resolve_rule_sampling_cfg(r, self.check_cfg, self.table_cfg.name, idx)
             if not ok and method_lower in {"count", "distinct_count"} and mismatch_cfg:
                 source_id, target_id = _resolve_rule_id_columns(r, self.check_cfg)
+
+                # Traditional range-based mismatch sampling
                 mismatch_result = _maybe_sample_rule_mismatch(
                     self,
                     mismatch_cfg,
@@ -185,6 +188,21 @@ class AggregationsCheck(BaseCheck):
                         mismatch_result,
                     ):
                         attach_csv_uri(entry, uri)
+
+                # Detect and export actual mismatch IDs
+                mismatch_ids_result = _maybe_detect_mismatch_ids(
+                    self,
+                    mismatch_cfg,
+                    source_select_sql,
+                    target_select_sql,
+                    source_id,
+                    target_id,
+                    idx,
+                    method or "count",
+                )
+                if mismatch_ids_result:
+                    config_file = self.vars_map.get("config_file", "")
+                    self.persist_mismatch_ids(mismatch_ids_result, entry, config_file)
 
             results.append(
                 {k: v for k, v in entry.items() if v not in (None, "", [], {})}
@@ -269,6 +287,71 @@ def _maybe_sample_rule_mismatch(
     except Exception as exc:
         log(
             "mismatch_sampling.error",
+            level="ERROR",
+            table=check.table_cfg.name,
+            check="aggregations",
+            rule_index=rule_index,
+            method=method,
+            error=str(exc),
+        )
+        return None
+
+
+def _maybe_detect_mismatch_ids(
+    check: AggregationsCheck,
+    sampling_cfg: MismatchSamplingCfg,
+    source_base_sql: str,
+    target_base_sql: str,
+    source_id: Optional[str],
+    target_id: Optional[str],
+    rule_index: int,
+    method: str,
+) -> Optional[MismatchIdsResult]:
+    """
+    Detect actual mismatch IDs for aggregations check.
+
+    This identifies:
+    - IDs in source but missing in target (missing_in_target)
+    - IDs in target but missing in source (extra_in_target) - CRITICAL
+    """
+    if not source_id or not target_id:
+        log(
+            "mismatch_ids.skipped",
+            table=check.table_cfg.name,
+            check="aggregations",
+            rule_index=rule_index,
+            method=method,
+            reason="missing_id_column",
+        )
+        return None
+
+    # Check if mismatch_ids export is enabled
+    mismatch_ids_cfg = (
+        check.results_storage_cfg.mismatch_ids
+        if check.results_storage_cfg
+        else None
+    )
+    if not mismatch_ids_cfg or not mismatch_ids_cfg.enabled:
+        return None
+
+    try:
+        config_file = check.vars_map.get("config_file", "")
+        return detect_mismatch_ids(
+            source=check.source,
+            target=check.target,
+            source_base_sql=source_base_sql,
+            target_base_sql=target_base_sql,
+            id_column_source=source_id,
+            id_column_target=target_id,
+            sampling_cfg=sampling_cfg,
+            table_name=check.table_cfg.name,
+            check_name=f"aggregations_{method}",
+            config_file=config_file,
+            max_ids=mismatch_ids_cfg.max_ids,
+        )
+    except Exception as exc:
+        log(
+            "mismatch_ids.error",
             level="ERROR",
             table=check.table_cfg.name,
             check="aggregations",
