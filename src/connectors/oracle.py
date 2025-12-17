@@ -37,6 +37,9 @@ class OracleConnector(BaseConnector):
             )
         return f"SELECT {sel} FROM {q.table}"
 
+    def wrap_subquery(self, sql: str, alias: str) -> str:
+        return f"({sql}) {alias}"
+
     def render_count_sql(self, inner_sql: str) -> str:
         return f"SELECT COUNT(*) AS c FROM ({inner_sql})"
 

@@ -30,6 +30,7 @@ def _build_cli_overrides(parsed) -> Dict[str, Any]:
 
 
 def main() -> None:
+    load_dotenv(".framework.env", override=False)
     load_dotenv()
     register_all()
     parsed = parse_args(sys.argv[1:])
@@ -45,6 +46,7 @@ def main() -> None:
         alerts_override=parsed.alerts_override,
         cli_overrides=_build_cli_overrides(parsed),
     )
+    runtime_vars.setdefault("config_file", parsed.config_file)
 
     log(
         "main.start",

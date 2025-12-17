@@ -1,0 +1,1538 @@
+connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+# alerts:
+#   routes:
+#     - kind: gchat
+#       mode: card
+
+tables:
+  # SEAWARE.ACC_COUPON
+  - name: ACC_COUPON_VALIDATION
+    source:
+      table: SEAWARE.ACC_COUPON
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_coupon
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COUPON_ID
+            target_column: coupon_id
+
+  # SEAWARE.ACC_COUPON_CLASS
+  - name: ACC_COUPON_CLASS_VALIDATION
+    source:
+      table: SEAWARE.ACC_COUPON_CLASS
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_coupon_class
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COUPON_CLASS
+            target_column: coupon_class
+
+  # SEAWARE.ACC_INVOICE_DETAIL
+  - name: ACC_INVOICE_DETAIL_VALIDATION
+    source:
+      table: SEAWARE.ACC_INVOICE_DETAIL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_invoice_detail
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.ACC_TRANS_DETAIL
+  - name: ACC_TRANS_DETAIL_VALIDATION
+    source:
+      table: SEAWARE.ACC_TRANS_DETAIL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_acc_trans_detail
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRANS_ID
+            target_column: trans_id
+
+  # SEAWARE.AGENCY
+  - name: AGENCY_VALIDATION
+    source:
+      table: SEAWARE.AGENCY
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AGENCY_ID
+            target_column: agency_id
+
+  # SEAWARE.AGENCY_ADDRESS
+  - name: AGENCY_ADDRESS_VALIDATION
+    source:
+      table: SEAWARE.AGENCY_ADDRESS
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_address
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AGENCY_ADDR_ID
+            target_column: agency_addr_id
+
+  # SEAWARE.AGENCY_CLASSIFICATION_LINK
+  - name: AGENCY_CLASSIFICATION_LINK_VALIDATION
+    source:
+      table: SEAWARE.AGENCY_CLASSIFICATION_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_classification_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.AGENCY_LINK
+  - name: AGENCY_LINK_VALIDATION
+    source:
+      table: SEAWARE.AGENCY_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: LINK_ID
+            target_column: link_id
+
+  # SEAWARE.AGENCY_REGION_LINK
+  - name: AGENCY_REGION_LINK_VALIDATION
+    source:
+      table: SEAWARE.AGENCY_REGION_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_agency_region_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AG_REGION_LINK_ID
+            target_column: ag_region_link_id
+
+  # SEAWARE.AIR_ACTUAL_COST_ITEM
+  - name: AIR_ACTUAL_COST_ITEM_VALIDATION
+    source:
+      table: SEAWARE.AIR_ACTUAL_COST_ITEM
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_cost_item
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COST_ITEM_ID
+            target_column: cost_item_id
+
+  # SEAWARE.AIR_ACTUAL_HEADER
+  - name: AIR_ACTUAL_HEADER_VALIDATION
+    source:
+      table: SEAWARE.AIR_ACTUAL_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_header
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HEADER_ID
+            target_column: header_id
+
+  # SEAWARE.AIR_ACTUAL_LEG
+  - name: AIR_ACTUAL_LEG_VALIDATION
+    source:
+      table: SEAWARE.AIR_ACTUAL_LEG
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_leg
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: LEG_ID
+            target_column: leg_id
+
+  # SEAWARE.AIR_ACTUAL_PAX_LINK
+  - name: AIR_ACTUAL_PAX_LINK_VALIDATION
+    source:
+      table: SEAWARE.AIR_ACTUAL_PAX_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_pax_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.AIR_ACTUAL_PNR_LINK
+  - name: AIR_ACTUAL_PNR_LINK_VALIDATION
+    source:
+      table: SEAWARE.AIR_ACTUAL_PNR_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_pnr_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.AIR_ACTUAL_SEGMENT
+  - name: AIR_ACTUAL_SEGMENT_VALIDATION
+    source:
+      table: SEAWARE.AIR_ACTUAL_SEGMENT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_segment
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SEGMENT_ID
+            target_column: segment_id
+
+  # SEAWARE.AIR_ACTUAL_TICKET
+  - name: AIR_ACTUAL_TICKET_VALIDATION
+    source:
+      table: SEAWARE.AIR_ACTUAL_TICKET
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_actual_ticket
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TICKET_NO
+            target_column: ticket_no
+
+  # SEAWARE.AIR_AMADEUS_LOG
+  - name: AIR_AMADEUS_LOG_VALIDATION
+    source:
+      table: SEAWARE.AIR_AMADEUS_LOG
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_air_amadeus_log
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: MESSAGE_ID
+            target_column: message_id
+
+  # SEAWARE.AIRLINE
+  - name: AIRLINE_VALIDATION
+    source:
+      table: SEAWARE.AIRLINE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_airline
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AIRLINE_CODE
+            target_column: airline_code
+
+  # SEAWARE.AIRPORT
+  - name: AIRPORT_VALIDATION
+    source:
+      table: SEAWARE.AIRPORT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_airport
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AIRPORT_CODE
+            target_column: airport_code
+
+  # SEAWARE.AIRPORT_ADDRESS
+  - name: AIRPORT_ADDRESS_VALIDATION
+    source:
+      table: SEAWARE.AIRPORT_ADDRESS
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_airport_address
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AIRPORT_ADDR_ID
+            target_column: airport_addr_id
+
+  # SEAWARE.AM_CODE
+  - name: AM_CODE_VALIDATION
+    source:
+      table: SEAWARE.AM_CODE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_am_code
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: AMENITY_CODE
+            target_column: amenity_code
+
+  # SEAWARE.APIS_DOCUMENT
+  - name: APIS_DOCUMENT_VALIDATION
+    source:
+      table: SEAWARE.APIS_DOCUMENT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_apis_document
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COUNTRY_CODE
+            target_column: country_code
+
+  # SEAWARE.APIS_ID_DOCUMENT_TYPE
+  - name: APIS_ID_DOCUMENT_TYPE_VALIDATION
+    source:
+      table: SEAWARE.APIS_ID_DOCUMENT_TYPE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_apis_id_document_type
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.APIS_INFO
+  - name: APIS_INFO_VALIDATION
+    source:
+      table: SEAWARE.APIS_INFO
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_apis_info
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.CABIN_CAT_GEN_LNK_CABIN_CAT
+  - name: CABIN_CAT_GEN_LNK_CABIN_CAT_VALIDATION
+    source:
+      table: SEAWARE.CABIN_CAT_GEN_LNK_CABIN_CAT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_cabin_cat_gen_lnk_cabin_cat
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.CABIN_CATEGORY
+  - name: CABIN_CATEGORY_VALIDATION
+    source:
+      table: SEAWARE.CABIN_CATEGORY
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_cabin_category
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CABIN_CATEGORY_ID
+            target_column: cabin_category_id
+
+  # SEAWARE.CABIN_CATEGORY_GENERIC
+  - name: CABIN_CATEGORY_GENERIC_VALIDATION
+    source:
+      table: SEAWARE.CABIN_CATEGORY_GENERIC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_cabin_category_generic
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CABIN_CATEGORY_GENERIC
+            target_column: cabin_category_generic
+
+  # SEAWARE.CANCELLATION_CASE
+  - name: CANCELLATION_CASE_VALIDATION
+    source:
+      table: SEAWARE.CANCELLATION_CASE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_cancellation_case
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CASE_ID
+            target_column: case_id
+
+  # SEAWARE.CC_CLIENT
+  - name: CC_CLIENT_VALIDATION
+    source:
+      table: SEAWARE.CC_CLIENT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_cc_client
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CC_ACC_ID
+            target_column: cc_acc_id
+
+  # SEAWARE.CLIENT
+  - name: CLIENT_VALIDATION
+    source:
+      table: SEAWARE.CLIENT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_client
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CLIENT_ID
+            target_column: client_id
+
+  # SEAWARE.CLIENT_CLASSIFICATION_LINK
+  - name: CLIENT_CLASSIFICATION_LINK_VALIDATION
+    source:
+      table: SEAWARE.CLIENT_CLASSIFICATION_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_client_classification_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.COUNTRY
+  - name: COUNTRY_VALIDATION
+    source:
+      table: SEAWARE.COUNTRY
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_country
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: COUNTRY_CODE
+            target_column: country_code
+
+  # SEAWARE.ENTITY_INVOICE
+  - name: ENTITY_INVOICE_VALIDATION
+    source:
+      table: SEAWARE.ENTITY_INVOICE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_entity_invoice
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GL_TRANS
+  - name: GL_TRANS_VALIDATION
+    source:
+      table: SEAWARE.GL_TRANS
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_gl_trans
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GL_TRANS_ID
+            target_column: gl_trans_id
+
+  # SEAWARE.GROUP_BOOKING
+  - name: GROUP_BOOKING_VALIDATION
+    source:
+      table: SEAWARE.GROUP_BOOKING
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_booking
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GROUP_ID
+            target_column: group_id
+
+  # SEAWARE.GROUP_COMMISSION_DETAIL
+  - name: GROUP_COMMISSION_DETAIL_VALIDATION
+    source:
+      table: SEAWARE.GROUP_COMMISSION_DETAIL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_commission_detail
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_DELEGATE_GUEST
+  - name: GROUP_DELEGATE_GUEST_VALIDATION
+    source:
+      table: SEAWARE.GROUP_DELEGATE_GUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_delegate_guest
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: DELEGATE_GUEST_ID
+            target_column: delegate_guest_id
+
+  # SEAWARE.GROUP_DELEGATE_HEADER
+  - name: GROUP_DELEGATE_HEADER_VALIDATION
+    source:
+      table: SEAWARE.GROUP_DELEGATE_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_delegate_header
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: DELEGATE_HEADER_ID
+            target_column: delegate_header_id
+
+  # SEAWARE.GROUP_HISTORY_HEADER
+  - name: GROUP_HISTORY_HEADER_VALIDATION
+    source:
+      table: SEAWARE.GROUP_HISTORY_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_history_header
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GROUP_ID
+            target_column: group_id
+
+  # SEAWARE.GROUP_HOTEL_REQUEST
+  - name: GROUP_HOTEL_REQUEST_VALIDATION
+    source:
+      table: SEAWARE.GROUP_HOTEL_REQUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_hotel_request
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_INVOICE_ITEM
+  - name: GROUP_INVOICE_ITEM_VALIDATION
+    source:
+      table: SEAWARE.GROUP_INVOICE_ITEM
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_invoice_item
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_SHIP_INV_ALLOC_DESC
+  - name: GROUP_SHIP_INV_ALLOC_DESC_VALIDATION
+    source:
+      table: SEAWARE.GROUP_SHIP_INV_ALLOC_DESC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_ship_inv_alloc_desc
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_SHIP_REQUEST
+  - name: GROUP_SHIP_REQUEST_VALIDATION
+    source:
+      table: SEAWARE.GROUP_SHIP_REQUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_ship_request
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.GROUP_SHIP_REQUEST_DESC
+  - name: GROUP_SHIP_REQUEST_DESC_VALIDATION
+    source:
+      table: SEAWARE.GROUP_SHIP_REQUEST_DESC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_ship_request_desc
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.HOTEL
+  - name: HOTEL_VALIDATION
+    source:
+      table: SEAWARE.HOTEL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_hotel
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOTEL_ID
+            target_column: hotel_id
+
+  # SEAWARE.HOTEL_ADDRESS
+  - name: HOTEL_ADDRESS_VALIDATION
+    source:
+      table: SEAWARE.HOTEL_ADDRESS
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_hotel_address
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOTEL_ADDR_ID
+            target_column: hotel_addr_id
+
+  # SEAWARE.HOTEL_INV_ALLOCATION
+  - name: HOTEL_INV_ALLOCATION_VALIDATION
+    source:
+      table: SEAWARE.HOTEL_INV_ALLOCATION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_hotel_inv_allocation
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ALLOCATION_ID
+            target_column: allocation_id
+
+  # SEAWARE.HOUSEHOLD_ADDRESS
+  - name: HOUSEHOLD_ADDRESS_VALIDATION
+    source:
+      table: SEAWARE.HOUSEHOLD_ADDRESS
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_household_address
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOUSEHOLD_ADDR_ID
+            target_column: household_addr_id
+
+  # SEAWARE.HOUSEHOLD_PHONE
+  - name: HOUSEHOLD_PHONE_VALIDATION
+    source:
+      table: SEAWARE.HOUSEHOLD_PHONE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_household_phone
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOUSEHOLD_PHONE_ID
+            target_column: household_phone_id
+
+  # SEAWARE.INVOICE_ITEM_TYPE
+  - name: INVOICE_ITEM_TYPE_VALIDATION
+    source:
+      table: SEAWARE.INVOICE_ITEM_TYPE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_invoice_item_type
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: INVOICE_ITEM_TYPE
+            target_column: invoice_item_type
+
+  # SEAWARE.PACKAGE_CLASS_CODE
+  - name: PACKAGE_CLASS_CODE_VALIDATION
+    source:
+      table: SEAWARE.PACKAGE_CLASS_CODE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_class_code
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PACKAGE_CLASS_CODE
+            target_column: package_class_code
+
+  # SEAWARE.PACKAGE_CLASS_LINK
+  - name: PACKAGE_CLASS_LINK_VALIDATION
+    source:
+      table: SEAWARE.PACKAGE_CLASS_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_class_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.PACKAGE_DEFINITION
+  - name: PACKAGE_DEFINITION_VALIDATION
+    source:
+      table: SEAWARE.PACKAGE_DEFINITION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_definition
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PACKAGE_ID
+            target_column: package_id
+
+  # SEAWARE.PACKAGE_ITIN_PACKAGE_LINK
+  - name: PACKAGE_ITIN_PACKAGE_LINK_VALIDATION
+    source:
+      table: SEAWARE.PACKAGE_ITIN_PACKAGE_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_itin_package_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ITIN_RECORD_ID
+            target_column: itin_record_id
+
+  # SEAWARE.PACKAGE_ITINERARY
+  - name: PACKAGE_ITINERARY_VALIDATION
+    source:
+      table: SEAWARE.PACKAGE_ITINERARY
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_itinerary
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ITIN_RECORD_ID
+            target_column: itin_record_id
+
+  # SEAWARE.PACKAGE_TYPE
+  - name: PACKAGE_TYPE_VALIDATION
+    source:
+      table: SEAWARE.PACKAGE_TYPE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_type
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PACKAGE_TYPE
+            target_column: package_type
+
+  # SEAWARE.PACKAGE_TYPE_VENDOR_LINK
+  - name: PACKAGE_TYPE_VENDOR_LINK_VALIDATION
+    source:
+      table: SEAWARE.PACKAGE_TYPE_VENDOR_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_package_type_vendor_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.PAP_MASTER
+  - name: PAP_MASTER_VALIDATION
+    source:
+      table: SEAWARE.PAP_MASTER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_pap_master
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PAP_CODE
+            target_column: pap_code
+
+  # SEAWARE.PASSENGER
+  - name: PASSENGER_VALIDATION
+    source:
+      table: SEAWARE.PASSENGER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_passenger
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: PAX_ID
+            target_column: pax_id
+
+  # SEAWARE.REGION
+  - name: REGION_VALIDATION
+    source:
+      table: SEAWARE.REGION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_region
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: REGION_ID
+            target_column: region_id
+
+  # SEAWARE.RELATIONSHIP
+  - name: RELATIONSHIP_VALIDATION
+    source:
+      table: SEAWARE.RELATIONSHIP
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_relationship
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RELATIONSHIP
+            target_column: relationship
+
+  # SEAWARE.RES_ADDON
+  - name: RES_ADDON_VALIDATION
+    source:
+      table: SEAWARE.RES_ADDON
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_addon
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_ADDON_ID
+            target_column: res_addon_id
+
+  # SEAWARE.RES_CHARGEABLE_ACTION
+  - name: RES_CHARGEABLE_ACTION_VALIDATION
+    source:
+      table: SEAWARE.RES_CHARGEABLE_ACTION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_chargeable_action
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ACTION_ID
+            target_column: action_id
+
+  # SEAWARE.RES_CHARGE_COMMISSION
+  - name: RES_CHARGE_COMMISSION_VALIDATION
+    source:
+      table: SEAWARE.RES_CHARGE_COMMISSION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_charge_commission
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_CHARGE_DETAIL
+  - name: RES_CHARGE_DETAIL_VALIDATION
+    source:
+      table: SEAWARE.RES_CHARGE_DETAIL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_charge_detail
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CHARGE_ID
+            target_column: charge_id
+
+  # SEAWARE.RES_CHARGE_SUBDETAIL
+  - name: RES_CHARGE_SUBDETAIL_VALIDATION
+    source:
+      table: SEAWARE.RES_CHARGE_SUBDETAIL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_charge_subdetail
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_COMMISSION_CANCEL
+  - name: RES_COMMISSION_CANCEL_VALIDATION
+    source:
+      table: SEAWARE.RES_COMMISSION_CANCEL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_commission_cancel
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_COMMISS_DETAIL_ID
+            target_column: res_commiss_detail_id
+
+  # SEAWARE.RES_COMMISSION_DETAIL
+  - name: RES_COMMISSION_DETAIL_VALIDATION
+    source:
+      table: SEAWARE.RES_COMMISSION_DETAIL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_commission_detail
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_COMMISS_DETAIL_ID
+            target_column: res_commiss_detail_id
+
+  # SEAWARE.RES_EVENT
+  - name: RES_EVENT_VALIDATION
+    source:
+      table: SEAWARE.RES_EVENT
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_event
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_GUEST
+  - name: RES_GUEST_VALIDATION
+    source:
+      table: SEAWARE.RES_GUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_guest
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: GUEST_ID
+            target_column: guest_id
+
+  # SEAWARE.RES_GUEST_IN_ROOM
+  - name: RES_GUEST_IN_ROOM_VALIDATION
+    source:
+      table: SEAWARE.RES_GUEST_IN_ROOM
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_guest_in_room
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_HEADER
+  - name: RES_HEADER_VALIDATION
+    source:
+      table: SEAWARE.RES_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_ID
+            target_column: res_id
+
+  # SEAWARE.RES_HISTORY
+  - name: RES_HISTORY_VALIDATION
+    source:
+      table: SEAWARE.RES_HISTORY
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_history
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRANS_ID
+            target_column: trans_id
+
+  # SEAWARE.RES_HOTEL_REQUEST
+  - name: RES_HOTEL_REQUEST_VALIDATION
+    source:
+      table: SEAWARE.RES_HOTEL_REQUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_hotel_request
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: HOTEL_REQUEST_ID
+            target_column: hotel_request_id
+
+  # SEAWARE.RES_INVOICE_CANC
+  - name: RES_INVOICE_CANC_VALIDATION
+    source:
+      table: SEAWARE.RES_INVOICE_CANC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_invoice_canc
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_INVOICE_ITEM_ID
+            target_column: res_invoice_item_id
+
+  # SEAWARE.RES_INVOICE_ITEM
+  - name: RES_INVOICE_ITEM_VALIDATION
+    source:
+      table: SEAWARE.RES_INVOICE_ITEM
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            res_invoice_item_id,
+            op
+          FROM prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_invoice_item
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY res_invoice_item_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0             
+        rules:
+          - method: distinct_count
+            source_column: RES_INVOICE_ITEM_ID
+            target_column: res_invoice_item_id
+
+  # SEAWARE.RES_PACKAGE
+  - name: RES_PACKAGE_VALIDATION
+    source:
+      table: SEAWARE.RES_PACKAGE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_package
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_PACKAGE_ID
+            target_column: res_package_id
+
+  # SEAWARE.RES_PAYMENT_DUE_ITEM
+  - name: RES_PAYMENT_DUE_ITEM_VALIDATION
+    source:
+      table: SEAWARE.RES_PAYMENT_DUE_ITEM
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_payment_due_item
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_PAYMENT_DUE_ITEM_ID
+            target_column: res_payment_due_item_id
+
+  # SEAWARE.RES_PROMOTION
+  - name: RES_PROMOTION_VALIDATION
+    source:
+      table: SEAWARE.RES_PROMOTION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_promotion
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RES_PROMO_ID
+            target_column: res_promo_id
+
+  # SEAWARE.RES_PROTECTED_COMMISSION
+  - name: RES_PROTECTED_COMMISSION_VALIDATION
+    source:
+      table: SEAWARE.RES_PROTECTED_COMMISSION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_protected_commission
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.RES_ROOM_REQUEST
+  - name: RES_ROOM_REQUEST_VALIDATION
+    source:
+      table: SEAWARE.RES_ROOM_REQUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_room_request
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ROOM_REQUEST_ID
+            target_column: room_request_id
+
+  # SEAWARE.RES_SHIP_REQUEST
+  - name: RES_SHIP_REQUEST_VALIDATION
+    source:
+      table: SEAWARE.RES_SHIP_REQUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_ship_request
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SHIP_REQUEST_ID
+            target_column: ship_request_id
+
+  # SEAWARE.RES_USER_NOTES
+  - name: RES_USER_NOTES_VALIDATION
+    source:
+      table: SEAWARE.RES_USER_NOTES
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_user_notes
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.REVENUE_FORECAST_VERSION
+  - name: REVENUE_FORECAST_VERSION_VALIDATION
+    source:
+      table: SEAWARE.REVENUE_FORECAST_VERSION
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_revenue_forecast_version
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: FORECAST_VERSION
+            target_column: forecast_version
+
+  # SEAWARE.REVENUE_TARGET_HEADER
+  - name: REVENUE_TARGET_HEADER_VALIDATION
+    source:
+      table: SEAWARE.REVENUE_TARGET_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_revenue_target_header
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.REVENUE_TARGET_VALUE
+  - name: REVENUE_TARGET_VALUE_VALIDATION
+    source:
+      table: SEAWARE.REVENUE_TARGET_VALUE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_revenue_target_value
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SAIL_ACTIVITY
+  - name: SAIL_ACTIVITY_VALIDATION
+    source:
+      table: SEAWARE.SAIL_ACTIVITY
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_sail_activity
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SAIL_ACTIVITY_ID
+            target_column: sail_activity_id
+
+  # SEAWARE.SAIL_HEADER
+  - name: SAIL_HEADER_VALIDATION
+    source:
+      table: SEAWARE.SAIL_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_sail_header
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SAIL_ID
+            target_column: sail_id
+
+  # SEAWARE.SHIP
+  - name: SHIP_VALIDATION
+    source:
+      table: SEAWARE.SHIP
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SHIP_CODE
+            target_column: ship_code
+
+  # SEAWARE.SHIP_CABIN
+  - name: SHIP_CABIN_VALIDATION
+    source:
+      table: SEAWARE.SHIP_CABIN
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_cabin
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: CABIN_ID
+            target_column: cabin_id
+
+  # SEAWARE.SHIP_CABIN_CTG_LINK
+  - name: SHIP_CABIN_CTG_LINK_VALIDATION
+    source:
+      table: SEAWARE.SHIP_CABIN_CTG_LINK
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_cabin_ctg_link
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SHIP_CABIN_RESERVE
+  - name: SHIP_CABIN_RESERVE_VALIDATION
+    source:
+      table: SEAWARE.SHIP_CABIN_RESERVE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_cabin_reserve
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SHIP_CABIN_RESERVE_TYPE
+  - name: SHIP_CABIN_RESERVE_TYPE_VALIDATION
+    source:
+      table: SEAWARE.SHIP_CABIN_RESERVE_TYPE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_cabin_reserve_type
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RESERVE_TYPE
+            target_column: reserve_type
+
+  # SEAWARE.SHIP_DINING_ALLOC
+  - name: SHIP_DINING_ALLOC_VALIDATION
+    source:
+      table: SEAWARE.SHIP_DINING_ALLOC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_dining_alloc
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ALLOCATION_ID
+            target_column: allocation_id
+
+  # SEAWARE.SHIP_DINING_REQUEST
+  - name: SHIP_DINING_REQUEST_VALIDATION
+    source:
+      table: SEAWARE.SHIP_DINING_REQUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_dining_request
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: REQUEST_ID
+            target_column: request_id
+
+  # SEAWARE.SHIP_FACILITY
+  - name: SHIP_FACILITY_VALIDATION
+    source:
+      table: SEAWARE.SHIP_FACILITY
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_facility
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: FACILITY_ID
+            target_column: facility_id
+
+  # SEAWARE.SHIP_INVENTORY_ALLOC
+  - name: SHIP_INVENTORY_ALLOC_VALIDATION
+    source:
+      table: SEAWARE.SHIP_INVENTORY_ALLOC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_inventory_alloc
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ALLOCATION_ID
+            target_column: allocation_id
+
+  # SEAWARE.SHIP_NESTED_CABIN_CTG
+  - name: SHIP_NESTED_CABIN_CTG_VALIDATION
+    source:
+      table: SEAWARE.SHIP_NESTED_CABIN_CTG
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_nested_cabin_ctg
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SHIP_NESTED_CAB_CTGTO
+  - name: SHIP_NESTED_CAB_CTGTO_VALIDATION
+    source:
+      table: SEAWARE.SHIP_NESTED_CAB_CTGTO
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_nested_cab_ctgto
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: RECORD_ID
+            target_column: record_id
+
+  # SEAWARE.SHIP_ROOM
+  - name: SHIP_ROOM_VALIDATION
+    source:
+      table: SEAWARE.SHIP_ROOM
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_room
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SHIP_ROOM_ID
+            target_column: ship_room_id
+
+  # SEAWARE.SHIP_ROOM_ALLOC
+  - name: SHIP_ROOM_ALLOC_VALIDATION
+    source:
+      table: SEAWARE.SHIP_ROOM_ALLOC
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_room_alloc
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ALLOCATION_ID
+            target_column: allocation_id
+
+  # SEAWARE.SHIP_ROOM_REQUEST
+  - name: SHIP_ROOM_REQUEST_VALIDATION
+    source:
+      table: SEAWARE.SHIP_ROOM_REQUEST
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_room_request
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: REQUEST_ID
+            target_column: request_id
+
+  # SEAWARE.TRW_DETAIL
+  - name: TRW_DETAIL_VALIDATION
+    source:
+      table: SEAWARE.TRW_DETAIL
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_trw_detail
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRW_DETAIL_ID
+            target_column: trw_detail_id
+
+  # SEAWARE.TRW_HEADER
+  - name: TRW_HEADER_VALIDATION
+    source:
+      table: SEAWARE.TRW_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_trw_header
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: TRW_HEADER_ID
+            target_column: trw_header_id
+
+  # SEAWARE.VCS_ADDITIONAL_FIELD_VALUE
+  - name: VCS_ADDITIONAL_FIELD_VALUE_VALIDATION
+    source:
+      table: SEAWARE.VCS_ADDITIONAL_FIELD_VALUE
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_vcs_additional_field_value
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: ID
+            target_column: id
+
+  # SEAWARE.VENDOR
+  - name: VENDOR_VALIDATION
+    source:
+      table: SEAWARE.VENDOR
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_vendor
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: VENDOR_ID
+            target_column: vendor_id
+
+  # SEAWARE.VV_VOYAGE_PRICING
+  - name: VV_VOYAGE_PRICING_VALIDATION
+    source:
+      table: SEAWARE.VV_VOYAGE_PRICING
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_vv_voyage_pricing
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SHIP_CODE
+            target_column: ship_code
+
+  # SEAWARE.VV_VOYAGE_TAXES
+  - name: VV_VOYAGE_TAXES_VALIDATION
+    source:
+      table: SEAWARE.VV_VOYAGE_TAXES
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_vv_voyage_taxes
+    checks:
+      - type: aggregations
+        tolerance_pct: 5.0
+        rules:
+          - method: distinct_count
+            source_col: SHIP_CODE
+            target_column: ship_code
+
+# run example:
+# python -m  src.main --filetype yaml --config-file sw_full_validation --env prod --run_label sw_full_validation_run

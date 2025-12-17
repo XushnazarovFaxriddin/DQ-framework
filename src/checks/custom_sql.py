@@ -31,7 +31,10 @@ class CustomSQLCheck(BaseCheck):
 
         # --- Mode selection ---
         mode = (cfg.mode or "single").lower()
-        on = (cfg.on or "source").lower()
+        on = str(cfg.on).lower()
+
+        if mode == "single" and on not in ['source', 'target']:
+            raise ValueError("custom_sql check: 'on' must be either 'source' or 'target' for single mode")
 
         sql_source = cfg.sql_source
         sql_target = cfg.sql_target

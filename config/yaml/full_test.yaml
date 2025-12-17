@@ -1,0 +1,73 @@
+connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+# alerts:
+#   routes:
+#     - kind: gchat
+#       mode: card
+
+tables:
+  - name: RES_HEADER_VALIDATION
+    source:
+      table: SEAWARE.RES_HEADER
+    target:
+      table: prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header
+    checks:
+      # - type: aggregations
+      #   tolerance_pct: 5.0 
+      #   rules:
+      #     - method: count
+      #       source_col: RES_ID
+      #       target_col: res_id
+      #     - method: distinct_count
+      #       source_col: RES_ID
+      #       target_col: res_id
+      #     - method: max
+      #       source_col: "CONFIRMATION_DATE"
+      #       target_col: "confirmation_date"
+      #     - method: min
+      #       source_col: "CONFIRMATION_DATE"
+      #       target_col: "confirmation_date"
+      #     - method: sum
+      #       source_col: RES_VERSION
+      #       target_col: res_version
+      #     - method: avg
+      #       source_col: RES_VERSION
+      #       target_col: res_version
+
+      # - type: domain
+      #   on: target
+      #   column: RES_VERSION
+      #   exclude_values: [null]
+
+      # - type: domain
+      #   on: source
+      #   column: CABIN_CATEGORY
+      #   allowed_values: ["A"]
+
+      # - type: domain
+      #   on: target
+      #   column: RES_VERSION
+      #   min: 0
+      #   max: 12000
+
+      - type: freshness
+        'on': source
+        column: LAST_UPDATED_AT        
+        max_lag_minutes: 600
+
+      # - type: custom_sql
+      #   mode: dual
+      #   sql_target: "SELECT count(res_id) - count(DISTINCT res_id) FROM prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_header"
+      #   sql_source: "SELECT count(res_id) - count(DISTINCT res_id) FROM SEAWARE.RES_HEADER"
+      #   # expected_result: 10
+
+      # - type: schema_drift
+      #   case_sensitive: false
+
+# run example:
+# python -m  src.main --filetype yaml --config-file full_test --env prod --run_label full_test
+           

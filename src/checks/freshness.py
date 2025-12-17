@@ -24,7 +24,7 @@ class FreshnessCheck(BaseCheck):
         max_lag = self.check_cfg.max_lag_minutes
         if max_lag is None:
             raise ValueError("freshness requires 'max_lag_minutes'")
-        side = getattr(self.check_cfg, "on", "source")
+        side = self.check_cfg.on
 
         base_sql = None
         connector = None

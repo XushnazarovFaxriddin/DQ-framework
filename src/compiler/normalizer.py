@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.compiler.schema import (
@@ -9,6 +10,7 @@ from src.compiler.schema import (
     CheckCfg,
     ColumnMapEntry,
     ConfigModel,
+    ResultsStorageCfg,
     TableCfg,
 )
 
@@ -83,7 +85,10 @@ def normalize_config(
 
     cfg = model.model_copy(deep=True)
     cfg_tables = [_normalize_table(t) for t in cfg.tables]
-    cfg = cfg.model_copy(update={"tables": cfg_tables})
+    results_storage = cfg.results_storage or ResultsStorageCfg()
+    cfg = cfg.model_copy(
+        update={"tables": cfg_tables, "results_storage": results_storage}
+    )
 
     if alerts_override is not None:
         alerts = cfg.alerts or AlertsCfg()
@@ -91,6 +96,7 @@ def normalize_config(
         cfg = cfg.model_copy(update={"alerts": alerts})
 
     runtime_vars = _coerce_vars_map(vars_map)
+    runtime_vars.setdefault("run_timestamp", datetime.utcnow())
     if cli_overrides:
         for key, value in cli_overrides.items():
             if value is not None:

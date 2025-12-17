@@ -46,7 +46,9 @@ from jinja2 import Template
 from src.runtime.context import build_run_context, RunContext
 from src.runtime.results import CheckResult, RunResult
 from src.runtime.registry import CHECKS
+from src.runtime.results_persistence import persist_run_results
 from src.utils.logger import log, ContextLogger
+from src.utils.severity import highest_severity
 from src.compiler.schema import ConfigModel, TableCfg, CheckCfg, QueryCfg, PlanningCfg
 
 
@@ -167,6 +169,7 @@ class Plan:
         - Dispatches alerts at the end
         """
         self._ensure_context()
+        run_start = datetime.now(timezone.utc)
 
         # Concurrency knobs
         concurrency_tables = int(self.vars_map.get("concurrency", 4))
@@ -254,9 +257,20 @@ class Plan:
                     )
 
         # Aggregate overall
-        run = RunResult(checks=all_results)
+        for result in all_results:
+            if result.status == "FAIL" and not result.severity:
+                result.severity = "WARNING"
+        metadata: Dict[str, Any] = {
+            "env": self.context.env,
+            "run_label": self.context.run_label,
+            "config_file": self.vars_map.get("config_file"),
+        }
+        run = RunResult(checks=all_results, metadata=metadata)
         if any(c.status == "FAIL" for c in all_results):
             run.overall_status = "FAIL"
+        run.overall_severity = highest_severity(
+            *(c.severity for c in all_results if c.status == "FAIL")
+        )
 
         stats = {
             "pass": sum(c.status == "PASS" for c in all_results),
@@ -264,6 +278,26 @@ class Plan:
             "skip": sum(c.status == "SKIP" for c in all_results),
         }
         log("execution.finish", overall_status=run.overall_status, stats=stats)
+
+        run_end = datetime.now(timezone.utc)
+        run.metadata.update(
+            {
+                "run_start": run_start.isoformat(),
+                "run_end": run_end.isoformat(),
+            }
+        )
+        try:
+            persist_run_results(
+                self.cfg.results_storage,
+                context=self.context,
+                run=run,
+                checks=all_results,
+                run_start=run_start,
+                run_end=run_end,
+                stats=stats,
+            )
+        except Exception as exc:
+            log("results.persistence.error", level="WARNING", error=str(exc))
 
         try:
             from src.alerts.dispatcher import dispatch_alerts
@@ -388,6 +422,7 @@ class Plan:
             target=self.context.target,
             vars_map=self.vars_map,
             hashing=self.cfg.defaults.hashing,
+            results_storage=self.cfg.results_storage,
         )
 
         def _runner():

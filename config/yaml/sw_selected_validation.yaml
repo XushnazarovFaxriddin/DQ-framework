@@ -1,0 +1,132 @@
+connections:
+  source_env_var: PROD_ORA_SW_CONN_STR
+  source_type: oracle
+  target_env_var: PROD_BQ_ALL_CONN_STR
+  target_type: bigquery
+
+results_storage:
+  mismatch_csv:
+    enabled: true
+  runs:
+    enabled: true
+    backend: bigquery
+    table: cert-shore-295415.dqf_monitoring.dqf_runs
+    project: cert-shore-295415
+  checks:
+    enabled: true
+    backend: bigquery
+    table: cert-shore-295415.dqf_monitoring.dqf_check_results
+    project: cert-shore-295415
+
+alerts:
+  routes:
+    - kind: gchat
+      mode: card
+
+tables:
+  - name: VENDOR_VALIDATION
+    source:
+      table: SEAWARE.VENDOR
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            vendor_code,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_vendor`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY vendor_code
+            ORDER BY ts_ms DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: row_count
+        id_column: VENDOR_CODE
+        mismatch_sampling:
+          mode: chunk
+          chunk_size: 200000
+          max_ranges: 10
+          max_scan_chunks: 50
+
+  - name: SHIP_NESTED_CAB_CTGTO_VALIDATION
+    source:
+      table: SEAWARE.SHIP_NESTED_CAB_CTGTO
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            nested_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_ship_nested_cab_ctgto`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY nested_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: row_count
+        id_column: NESTED_ID
+        mismatch_sampling:
+          mode: binary
+          max_depth: 6
+          max_ranges: 8
+          max_scan_chunks: 40
+
+  - name: RES_USER_NOTES_VALIDATION
+    source:
+      table: SEAWARE.RES_USER_NOTES
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_res_user_notes`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: row_count
+        id_column: RECORD_ID
+        mismatch_sampling:
+          mode: binary
+          max_depth: 6
+          max_ranges: 10
+          max_scan_chunks: 40
+
+  - name: GROUP_SHIP_INV_ALLOC_DESC_VALIDATION
+    source:
+      table: SEAWARE.GROUP_SHIP_INV_ALLOC_DESC
+    target:
+      query: |
+        SELECT *
+        FROM (
+          SELECT
+            record_id,
+            op
+          FROM  `prod-shore.nbx_parse.hvtb_parse_sw_rpl_group_ship_inv_alloc_desc`
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY record_id
+            ORDER BY ts_ms DESC, lsn DESC
+          ) = 1
+        )
+        WHERE op != 'd'
+    checks:
+      - type: row_count
+        id_column: RECORD_ID
+        mismatch_sampling:
+          mode: chunk
+          chunk_size: 200000
+          max_ranges: 10
+          max_scan_chunks: 60
+
+# run example:
+# python -m  src.main --filetype yaml --config-file sw_selected_validation --env cert --run_label sw_selected_validation_run

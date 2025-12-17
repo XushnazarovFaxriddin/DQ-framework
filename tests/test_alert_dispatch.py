@@ -33,7 +33,7 @@ def test_email_alert_uses_env_recipients(monkeypatch):
 
     ALERTS["email"] = fake_email_sender
 
-    monkeypatch.setenv("DQ_EMAILS", "a@example.com,b@example.com")
+    monkeypatch.setenv("DQ_EMAILS", "jamshid.allayev@virginvoyages.com")
 
     dispatch_alerts(cfg, run)
     assert calls == [["a@example.com", "b@example.com"]]
