@@ -7,13 +7,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from dateutil import parser as dtparser
 
 from src.checks.base import BaseCheck
-from src.compiler.schema import CheckCfg, ColumnMapEntry, MismatchSamplingCfg
+from src.compiler.schema import CheckCfg, ColumnMapEntry
 from src.runtime.registry import register_check
 from src.runtime.results import CheckResult
-from src.utils.io import attach_csv_uri
 from src.utils.logger import log
 from src.utils.mismatch_ids import detect_mismatch_ids, MismatchIdsResult
-from src.utils.mismatch_sampling import MismatchSamplingResult, sample_mismatch_ranges
 from src.utils.sql import wrap_order_by
 
 
@@ -146,7 +144,7 @@ class AggregationsCheck(BaseCheck):
             except Exception:
                 pass
 
-            entry = {
+            entry: Dict[str, Any] = {
                 "method": method,
                 "column": column,
                 "source_column": source_col,
@@ -162,37 +160,11 @@ class AggregationsCheck(BaseCheck):
                 all_pass = False
 
             method_lower = str(method or "").lower()
-            mismatch_cfg = _resolve_rule_sampling_cfg(r, self.check_cfg, self.table_cfg.name, idx)
-            if not ok and method_lower in {"count", "distinct_count"} and mismatch_cfg:
-                source_id, target_id = _resolve_rule_id_columns(r, self.check_cfg)
-
-                # Traditional range-based mismatch sampling
-                mismatch_result = _maybe_sample_rule_mismatch(
-                    self,
-                    mismatch_cfg,
-                    source_select_sql,
-                    target_select_sql,
-                    source_id,
-                    target_id,
-                    idx,
-                    method or "count",
-                )
-                if mismatch_result:
-                    entry["mismatch_ranges"] = mismatch_result.summary(mismatch_cfg.max_ranges)
-                    self.record_mismatch_sampling(
-                        f"{self.table_cfg.name}.aggregations[{idx}]",
-                        mismatch_result,
-                    )
-                    if uri := self.persist_mismatch_csv(
-                        f"{self.table_cfg.name}.aggregations[{idx}]",
-                        mismatch_result,
-                    ):
-                        attach_csv_uri(entry, uri)
-
+            if not ok and method_lower in {"count", "distinct_count"}:
                 # Detect and export actual mismatch IDs
+                source_id, target_id = _resolve_rule_id_columns(r, self.check_cfg, source_col, target_col)
                 mismatch_ids_result = _maybe_detect_mismatch_ids(
                     self,
-                    mismatch_cfg,
                     source_select_sql,
                     target_select_sql,
                     source_id,
@@ -221,85 +193,60 @@ class AggregationsCheck(BaseCheck):
         )
 
 
-def _resolve_rule_sampling_cfg(
-    rule: Dict[str, Any], cfg: CheckCfg, table_name: str, rule_index: int
-) -> Optional[MismatchSamplingCfg]:
-    sampling = rule.get("mismatch_sampling")
-    if sampling:
-        if isinstance(sampling, MismatchSamplingCfg):
-            return sampling
-        try:
-            return MismatchSamplingCfg.model_validate(sampling)
-        except Exception as exc:
-            log(
-                "mismatch_sampling.invalid_config",
-                level="ERROR",
-                table=table_name,
-                check="aggregations",
-                rule_index=rule_index,
-                error=str(exc),
-            )
-            return None
-    return cfg.mismatch_sampling
-
-
 def _resolve_rule_id_columns(
-    rule: Dict[str, Any], cfg: CheckCfg
+    rule: Dict[str, Any],
+    cfg: CheckCfg,
+    rule_source_col: Optional[str] = None,
+    rule_target_col: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[str]]:
-    fallback = rule.get("id_column") or cfg.id_column
-    return (
-        rule.get("id_column_source") or cfg.id_column_source or fallback,
-        rule.get("id_column_target") or cfg.id_column_target or fallback,
+    """
+    Resolve ID columns with comprehensive fallback chain:
+
+    For source:
+    1. rule.id_column_source
+    2. cfg.id_column_source
+    3. rule.id_column
+    4. cfg.id_column
+    5. rule.source_column (the aggregation column itself)
+    6. rule.column
+    7. cfg.column or cfg.col
+
+    Same logic for target.
+
+    This allows users to specify just 'column' in rule and have it work for both
+    aggregation and mismatch ID detection without redundant configuration.
+    """
+    # Fallback chain for source ID
+    source_id = (
+        rule.get("id_column_source")
+        or cfg.id_column_source
+        or rule.get("id_column")
+        or cfg.id_column
+        or rule_source_col
+        or rule.get("column")
+        or rule.get("col")
+        or cfg.column
+        or cfg.col
     )
 
+    # Fallback chain for target ID
+    target_id = (
+        rule.get("id_column_target")
+        or cfg.id_column_target
+        or rule.get("id_column")
+        or cfg.id_column
+        or rule_target_col
+        or rule.get("column")
+        or rule.get("col")
+        or cfg.column
+        or cfg.col
+    )
 
-def _maybe_sample_rule_mismatch(
-    check: AggregationsCheck,
-    sampling_cfg: MismatchSamplingCfg,
-    source_base_sql: str,
-    target_base_sql: str,
-    source_id: Optional[str],
-    target_id: Optional[str],
-    rule_index: int,
-    method: str,
-) -> Optional[MismatchSamplingResult]:
-    if not source_id or not target_id:
-        log(
-            "mismatch_sampling.skipped",
-            table=check.table_cfg.name,
-            check="aggregations",
-            rule_index=rule_index,
-            method=method,
-            reason="missing_id_column",
-        )
-        return None
-
-    try:
-        return sample_mismatch_ranges(
-            source=check.source,
-            target=check.target,
-            source_base_sql=source_base_sql,
-            target_base_sql=target_base_sql,
-            id_column_source=source_id,
-            id_column_target=target_id,
-            sampling_cfg=sampling_cfg,
-        )
-    except Exception as exc:
-        log(
-            "mismatch_sampling.error",
-            level="ERROR",
-            table=check.table_cfg.name,
-            check="aggregations",
-            rule_index=rule_index,
-            method=method,
-            error=str(exc),
-        )
-        return None
+    return source_id, target_id
 
 
 def _maybe_detect_mismatch_ids(
     check: AggregationsCheck,
-    sampling_cfg: MismatchSamplingCfg,
     source_base_sql: str,
     target_base_sql: str,
     source_id: Optional[str],
@@ -343,11 +290,10 @@ def _maybe_detect_mismatch_ids(
             target_base_sql=target_base_sql,
             id_column_source=source_id,
             id_column_target=target_id,
-            sampling_cfg=sampling_cfg,
+            mismatch_ids_cfg=mismatch_ids_cfg,
             table_name=check.table_cfg.name,
             check_name=f"aggregations_{method}",
             config_file=config_file,
-            max_ids=mismatch_ids_cfg.max_ids,
         )
     except Exception as exc:
         log(

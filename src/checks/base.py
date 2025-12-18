@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from src.compiler.schema import (
     CheckCfg,
@@ -9,18 +8,11 @@ from src.compiler.schema import (
     TableCfg,
 )
 from src.runtime.results import CheckResult
-from src.utils.io import persist_rows_csv, persist_mismatch_ids_csv, attach_mismatch_ids_uris
+from src.utils.io import persist_mismatch_ids_csv, attach_mismatch_ids_uris
 from src.utils.logger import log
-from src.utils.mismatch_sampling import MismatchSamplingResult
 
 if TYPE_CHECKING:
     from src.utils.mismatch_ids import MismatchIdsResult
-
-
-@dataclass
-class MismatchSamplingRecord:
-    label: str
-    result: MismatchSamplingResult
 
 
 class BaseCheck(ABC):
@@ -42,60 +34,9 @@ class BaseCheck(ABC):
         self.vars_map = vars_map
         self.hashing = hashing or HashingCfg()
         self.results_storage_cfg = results_storage
-        self._mismatch_sampling_records: List[MismatchSamplingRecord] = []
 
     @abstractmethod
     def run(self) -> CheckResult: ...
-
-    def record_mismatch_sampling(self, label: str, result: MismatchSamplingResult) -> None:
-        self._mismatch_sampling_records.append(MismatchSamplingRecord(label=label, result=result))
-
-    def get_mismatch_sampling_records(self) -> Sequence[MismatchSamplingRecord]:
-        return tuple(self._mismatch_sampling_records)
-
-    def persist_mismatch_csv(
-        self,
-        label: str,
-        sampling_result: Optional[MismatchSamplingResult],
-    ) -> Optional[str]:
-        if not sampling_result:
-            return None
-        cfg = (
-            self.results_storage_cfg.mismatch_csv
-            if self.results_storage_cfg
-            else None
-        )
-        if not cfg or not cfg.enabled:
-            return None
-        rows = sampling_result.rows()
-        if not rows:
-            return None
-        try:
-            uri = persist_rows_csv(
-                rows=rows,
-                label=label,
-                vars_map=self.vars_map,
-                cfg=cfg,
-            )
-        except Exception as exc:
-            log(
-                "mismatch_csv.error",
-                level="WARNING",
-                table=self.table_cfg.name,
-                check=self.check_cfg.type,
-                label=label,
-                error=str(exc),
-            )
-            return None
-        if uri:
-            log(
-                "mismatch_csv.persist.ok",
-                table=self.table_cfg.name,
-                check=self.check_cfg.type,
-                label=label,
-                uri=uri,
-            )
-        return uri
 
     def persist_mismatch_ids(
         self,

@@ -10,10 +10,10 @@ Optimized for 10M+ rows using:
 - Binary search for narrowing down mismatched ranges
 - Set-based comparison for final ID extraction
 
-Environment variables (configured in .framework.env):
+Configuration via MismatchIdsCfg (in YAML or .framework.env):
 - DQF_MISMATCH_IDS_CHUNK_SIZE: Chunk size for ID fetching (default: 500000)
 - DQF_MISMATCH_IDS_MAX_IDS: Maximum IDs to export per type (default: 100000)
-- DQF_MISMATCH_IDS_PARALLEL_CHUNKS: Number of parallel chunk fetches (default: 4)
+- DQF_MISMATCH_IDS_ENABLED: Enable/disable mismatch IDs detection (default: true)
 """
 
 from __future__ import annotations
@@ -21,11 +21,13 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
-from src.compiler.schema import MismatchSamplingCfg
 from src.connectors.base import BaseConnector
 from src.utils.logger import log
+
+if TYPE_CHECKING:
+    from src.compiler.schema import MismatchIdsCfg
 
 
 def _env_int(var_name: str, default: int) -> int:
@@ -46,8 +48,8 @@ def _default_max_ids() -> int:
     return _env_int("DQF_MISMATCH_IDS_MAX_IDS", 100_000)
 
 
-def _default_parallel_chunks() -> int:
-    return _env_int("DQF_MISMATCH_IDS_PARALLEL_CHUNKS", 4)
+def _default_max_depth() -> int:
+    return _env_int("DQF_MISMATCH_IDS_MAX_DEPTH", 8)
 
 
 @dataclass
@@ -228,6 +230,29 @@ def _fetch_min_max(
         return None, None
 
 
+def _count_rows_in_range(
+    connector: BaseConnector,
+    base_sql: str,
+    id_column: str,
+    start: Optional[int],
+    end: Optional[int],
+) -> int:
+    """Count rows in a given ID range."""
+    conditions: List[str] = []
+    if start is not None:
+        conditions.append(f"{id_column} >= {start}")
+    if end is not None:
+        conditions.append(f"{id_column} <= {end}")
+
+    inner_alias = connector.wrap_subquery(base_sql, "q")
+    inner = f"SELECT * FROM {inner_alias}"
+    if conditions:
+        inner = f"{inner} WHERE {' AND '.join(conditions)}"
+
+    sql = connector.render_count_sql(inner)
+    return int(connector.fetch_scalar(sql) or 0)
+
+
 def _chunked_id_comparison(
     source: BaseConnector,
     target: BaseConnector,
@@ -306,8 +331,6 @@ def _binary_narrowed_comparison(
     Use binary search to find mismatched ranges, then extract IDs.
     More efficient for sparse mismatches in large tables.
     """
-    from src.utils.mismatch_sampling import _count_rows_in_range
-
     mismatched_ranges: List[Tuple[int, int]] = []
     chunks_scanned = 0
 
@@ -384,11 +407,10 @@ def detect_mismatch_ids(
     target_base_sql: str,
     id_column_source: str,
     id_column_target: str,
-    sampling_cfg: Optional[MismatchSamplingCfg] = None,
+    mismatch_ids_cfg: Optional["MismatchIdsCfg"] = None,
     table_name: str = "",
     check_name: str = "",
     config_file: str = "",
-    max_ids: Optional[int] = None,
 ) -> Optional[MismatchIdsResult]:
     """
     Detect mismatched IDs between source and target.
@@ -400,11 +422,10 @@ def detect_mismatch_ids(
         target_base_sql: Base SQL for target data
         id_column_source: ID column name in source
         id_column_target: ID column name in target
-        sampling_cfg: Optional sampling configuration
+        mismatch_ids_cfg: Configuration for mismatch IDs detection
         table_name: Table name for metadata
         check_name: Check name for metadata
         config_file: Config file name for CSV path
-        max_ids: Maximum IDs to export (defaults to env var)
 
     Returns:
         MismatchIdsResult with detected differences, or None on error
@@ -447,24 +468,14 @@ def detect_mismatch_ids(
         )
         return None
 
-    # Determine parameters
-    chunk_size = _default_chunk_size()
-    effective_max_ids = max_ids or _default_max_ids()
-    max_depth = 8  # Default binary search depth
+    # Determine parameters from config or defaults
+    chunk_size = mismatch_ids_cfg.chunk_size if mismatch_ids_cfg else _default_chunk_size()
+    max_ids = mismatch_ids_cfg.max_ids if mismatch_ids_cfg else _default_max_ids()
+    max_depth = _default_max_depth()
 
-    if sampling_cfg:
-        if sampling_cfg.chunk_size:
-            chunk_size = sampling_cfg.chunk_size
-        if sampling_cfg.max_depth:
-            max_depth = sampling_cfg.max_depth
-
-    # Choose method based on data size and configuration
-    use_binary = False
-    if sampling_cfg and sampling_cfg.mode == "binary":
-        use_binary = True
-    elif (overall_max - overall_min) > chunk_size * 20:
-        # Large range, binary might be more efficient
-        use_binary = True
+    # Choose method based on data size
+    # Use binary search for large ID ranges (more than 20x chunk_size)
+    use_binary = (overall_max - overall_min) > chunk_size * 20
 
     # Perform comparison
     if use_binary:
@@ -479,7 +490,7 @@ def detect_mismatch_ids(
             overall_max=overall_max,
             max_depth=max_depth,
             chunk_size=chunk_size,
-            max_ids=effective_max_ids,
+            max_ids=max_ids,
         )
         scan_method = "binary"
     else:
@@ -493,7 +504,7 @@ def detect_mismatch_ids(
             overall_min=overall_min,
             overall_max=overall_max,
             chunk_size=chunk_size,
-            max_ids=effective_max_ids,
+            max_ids=max_ids,
         )
         scan_method = "chunked"
 
@@ -505,8 +516,8 @@ def detect_mismatch_ids(
         extra_in_target=sorted(extra),
         source_count=source_count,
         target_count=target_count,
-        missing_in_target_count=len(missing) if not trunc_miss else len(missing),
-        extra_in_target_count=len(extra) if not trunc_extra else len(extra),
+        missing_in_target_count=len(missing),
+        extra_in_target_count=len(extra),
         id_column_source=id_column_source,
         id_column_target=id_column_target,
         truncated_missing=trunc_miss,
