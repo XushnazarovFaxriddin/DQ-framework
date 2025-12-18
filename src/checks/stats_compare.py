@@ -272,6 +272,12 @@ class StatsCompareCheck(BaseCheck):
         window: _Window,
         metric_clause: str,
     ) -> str:
+        connector = self._resolve_stats_connector()
+        engine = connector.engine_name
+
+        # Format timestamp for different engines
+        ts_expr = self._format_timestamp_expr(engine, window.start)
+
         return f"""
 WITH stats AS ({base_sql})
 SELECT
@@ -285,10 +291,24 @@ SELECT
 FROM stats
 WHERE table_name = '{self._escape_literal(table_name)}'
   AND period_granularity = '{self._escape_literal(window.granularity)}'
-  AND period_start >= TIMESTAMP('{window.start.isoformat()}')
+  AND period_start >= {ts_expr}
   {metric_clause}
 ORDER BY period_start ASC
 """
+
+    def _format_timestamp_expr(self, engine: str, dt: datetime) -> str:
+        """Format timestamp expression for different database engines."""
+        iso = dt.isoformat()
+        if engine == "bigquery":
+            return f"TIMESTAMP('{iso}')"
+        if engine == "postgres":
+            return f"TIMESTAMP '{iso}'"
+        if engine == "oracle":
+            return f"TO_TIMESTAMP('{iso}', 'YYYY-MM-DD\"T\"HH24:MI:SS')"
+        if engine == "mssql":
+            return f"CAST('{iso}' AS DATETIME2)"
+        # Default fallback
+        return f"TIMESTAMP('{iso}')"
 
     def _evaluate_mismatches(
         self,

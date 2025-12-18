@@ -91,6 +91,35 @@ def _first_available(details: Mapping[str, Any], keys: List[str]) -> Any:
     return None
 
 
+def _calculate_diff_percentage(source: Optional[float], target: Optional[float]) -> Optional[float]:
+    """
+    Calculate difference percentage between source and target.
+    Returns percentage relative to source (or target if source is 0).
+    """
+    if source is None or target is None:
+        return None
+    diff = abs(source - target)
+    if source == 0 and target == 0:
+        return 0.0
+    base = source if source != 0 else target
+    return (diff / abs(base)) * 100.0
+
+
+def _format_percentage(pct: Optional[float]) -> str:
+    """Format percentage with appropriate precision."""
+    if pct is None:
+        return "N/A"
+    if pct == 0:
+        return "0%"
+    if pct < 0.01:
+        return "<0.01%"
+    if pct < 1:
+        return f"{pct:.2f}%"
+    if pct < 10:
+        return f"{pct:.1f}%"
+    return f"{pct:.0f}%"
+
+
 def _metric_summary(details: Mapping[str, Any]) -> Optional[str]:
     source_raw = _first_available(details, ["source_count", "source_value", "source"])
     target_raw = _first_available(details, ["target_count", "target_value", "target"])
@@ -108,10 +137,150 @@ def _metric_summary(details: Mapping[str, Any]) -> Optional[str]:
     if source is not None and target is not None:
         diff = source - target
         segments.append(f"diff={_format_number(diff)}")
+        # Add percentage difference
+        pct = _calculate_diff_percentage(source, target)
+        if pct is not None and pct > 0:
+            segments.append(f"diff_pct={_format_percentage(pct)}")
     reason = details.get("reason")
     if isinstance(reason, str) and reason and reason not in {"threshold", "missing_source", "missing_target"}:
         segments.append(f"reason={reason}")
     return " | ".join(segments) if segments else None
+
+
+def _get_diff_percentage_for_check(check: "CheckResult") -> Optional[float]:
+    """
+    Get difference percentage for a check result.
+    Works for row_count, aggregations[count], aggregations[distinct_count].
+    """
+    if not isinstance(check.details, Mapping):
+        return None
+
+    # Direct source/target counts (row_count)
+    source = _to_float(_first_available(check.details, ["source_count", "source_value", "source"]))
+    target = _to_float(_first_available(check.details, ["target_count", "target_value", "target"]))
+
+    if source is not None and target is not None:
+        return _calculate_diff_percentage(source, target)
+
+    # Check in rules (aggregations)
+    rules = check.details.get("rules", [])
+    max_pct = None
+    for rule in rules:
+        if not isinstance(rule, Mapping):
+            continue
+        if not rule.get("pass", True):  # Only failed rules
+            s = _to_float(rule.get("source"))
+            t = _to_float(rule.get("target"))
+            if s is not None and t is not None:
+                pct = _calculate_diff_percentage(s, t)
+                if pct is not None and (max_pct is None or pct > max_pct):
+                    max_pct = pct
+    return max_pct
+
+
+def _has_extra_in_target(check: "CheckResult") -> bool:
+    """Check if this check result has extra_in_target (critical data integrity issue)."""
+    if not isinstance(check.details, Mapping):
+        return False
+    if check.details.get("has_extra_in_target"):
+        return True
+    # Check in rules for aggregations
+    rules = check.details.get("rules", [])
+    for rule in rules:
+        if isinstance(rule, Mapping) and rule.get("has_extra_in_target"):
+            return True
+    return False
+
+
+def _get_extra_in_target_count(check: "CheckResult") -> int:
+    """Get count of extra records in target."""
+    if not isinstance(check.details, Mapping):
+        return 0
+    count = check.details.get("extra_in_target_count", 0)
+    if count:
+        return int(count)
+    # Check in rules for aggregations
+    rules = check.details.get("rules", [])
+    total = 0
+    for rule in rules:
+        if isinstance(rule, Mapping):
+            total += int(rule.get("extra_in_target_count", 0))
+    return total
+
+
+def _get_extra_in_target_csv_uri(check: "CheckResult") -> Optional[str]:
+    """Get CSV URI for extra_in_target records."""
+    if not isinstance(check.details, Mapping):
+        return None
+    uri = check.details.get("extra_in_target_csv_uri")
+    if uri:
+        return uri
+    # Check in rules for aggregations
+    rules = check.details.get("rules", [])
+    for rule in rules:
+        if isinstance(rule, Mapping):
+            rule_uri = rule.get("extra_in_target_csv_uri")
+            if rule_uri:
+                return rule_uri
+    return None
+
+
+def _build_extra_in_target_section(checks: List["CheckResult"]) -> Optional[Dict[str, Any]]:
+    """
+    Build a critical alert section for checks that have extra records in target.
+
+    This is a data integrity issue - target has records that don't exist in source.
+    """
+    critical_checks = [c for c in checks if _has_extra_in_target(c)]
+    if not critical_checks:
+        return None
+
+    widgets: List[Dict[str, Any]] = []
+
+    # Warning header
+    widgets.append({
+        "textParagraph": {
+            "text": (
+                '<font color="#CC0000"><b>⚠️ CRITICAL DATA INTEGRITY ALERT</b></font><br>'
+                '<font color="#CC0000">Target database contains records that DO NOT EXIST in source!</font><br>'
+                'This may indicate: orphaned records, replication issues, or unauthorized data insertion.'
+            )
+        }
+    })
+
+    # List affected tables
+    for check in critical_checks[:10]:  # Limit to 10
+        count = _get_extra_in_target_count(check)
+        csv_uri = _get_extra_in_target_csv_uri(check)
+
+        text_lines = [
+            f"<b>Table:</b> {check.table}",
+            f"<b>Check:</b> {check.check_type}",
+            f"<b>Extra records in target:</b> {count}",
+        ]
+
+        if csv_uri:
+            console_uri = _console_uri(csv_uri)
+            text_lines.append(f'<b>CSV:</b> <a href="{console_uri}">Download extra IDs</a>')
+
+        widgets.append({"textParagraph": {"text": "<br>".join(text_lines)}})
+
+        if csv_uri:
+            widgets.append({
+                "buttonList": {
+                    "buttons": [
+                        {
+                            "text": "🚨 Download Extra IDs CSV",
+                            "onClick": {"openLink": {"url": _console_uri(csv_uri)}},
+                        }
+                    ]
+                }
+            })
+
+    return {
+        "header": "🚨 CRITICAL: Extra Records in Target",
+        "widgets": widgets,
+    }
 
 
 _CONFIG_FIELDS: List[tuple[str, str]] = [
@@ -213,6 +382,67 @@ def _shorten_ts(value: str | None) -> Optional[str]:
     return parsed_utc.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
+def _get_airflow_info() -> Dict[str, Optional[str]]:
+    """
+    Get Airflow DAG info from environment variables.
+
+    Environment variables (set by Airflow when triggering):
+    - AIRFLOW_DAG_ID: DAG ID
+    - AIRFLOW_DAG_RUN_ID: DAG Run ID
+    - AIRFLOW_TASK_ID: Task ID
+    - AIRFLOW_EXECUTION_DATE: Execution date
+    - AIRFLOW_LOG_URL: Direct link to task log
+    - AIRFLOW_DAG_URL: Link to DAG in Airflow UI
+    - AIRFLOW_BASE_URL: Base URL of Airflow UI (fallback for constructing URLs)
+    """
+    return {
+        "dag_id": os.getenv("AIRFLOW_DAG_ID"),
+        "dag_run_id": os.getenv("AIRFLOW_DAG_RUN_ID"),
+        "task_id": os.getenv("AIRFLOW_TASK_ID"),
+        "execution_date": os.getenv("AIRFLOW_EXECUTION_DATE"),
+        "log_url": os.getenv("AIRFLOW_LOG_URL"),
+        "dag_url": os.getenv("AIRFLOW_DAG_URL"),
+        "base_url": os.getenv("AIRFLOW_BASE_URL"),
+    }
+
+
+def _build_airflow_log_url(info: Dict[str, Optional[str]]) -> Optional[str]:
+    """Build Airflow log URL from available info."""
+    # Direct log URL takes priority
+    if info.get("log_url"):
+        return info["log_url"]
+
+    # Try to construct URL from parts
+    base_url = info.get("base_url")
+    dag_id = info.get("dag_id")
+    dag_run_id = info.get("dag_run_id")
+    task_id = info.get("task_id")
+    execution_date = info.get("execution_date")
+
+    if base_url and dag_id and task_id and (dag_run_id or execution_date):
+        base_url = base_url.rstrip("/")
+        if dag_run_id:
+            return f"{base_url}/dags/{dag_id}/grid?dag_run_id={dag_run_id}&task_id={task_id}"
+        return f"{base_url}/dags/{dag_id}/grid?execution_date={execution_date}&task_id={task_id}"
+
+    return None
+
+
+def _build_airflow_dag_url(info: Dict[str, Optional[str]]) -> Optional[str]:
+    """Build Airflow DAG URL from available info."""
+    if info.get("dag_url"):
+        return info["dag_url"]
+
+    base_url = info.get("base_url")
+    dag_id = info.get("dag_id")
+
+    if base_url and dag_id:
+        base_url = base_url.rstrip("/")
+        return f"{base_url}/dags/{dag_id}/grid"
+
+    return None
+
+
 def context_lines(context: Mapping[str, Any]) -> List[str]:
     lines: List[str] = []
 
@@ -233,6 +463,61 @@ def context_lines(context: Mapping[str, Any]) -> List[str]:
     _maybe_add("Started", "run_start")
     _maybe_add("Ended", "run_end")
     return lines
+
+
+def _build_airflow_section() -> Optional[Dict[str, Any]]:
+    """
+    Build Airflow info section for alerts.
+    Only shown if Airflow environment variables are set.
+    """
+    info = _get_airflow_info()
+
+    # Check if any Airflow info is available
+    if not any(info.values()):
+        return None
+
+    widgets: List[Dict[str, Any]] = []
+    text_lines: List[str] = []
+
+    if info.get("dag_id"):
+        text_lines.append(f"<b>DAG:</b> {info['dag_id']}")
+    if info.get("task_id"):
+        text_lines.append(f"<b>Task:</b> {info['task_id']}")
+    if info.get("dag_run_id"):
+        text_lines.append(f"<b>Run ID:</b> {info['dag_run_id']}")
+    if info.get("execution_date"):
+        text_lines.append(f"<b>Execution Date:</b> {info['execution_date']}")
+
+    if text_lines:
+        widgets.append({"textParagraph": {"text": "<br>".join(text_lines)}})
+
+    # Add buttons for log and DAG links
+    buttons: List[Dict[str, Any]] = []
+
+    log_url = _build_airflow_log_url(info)
+    if log_url:
+        buttons.append({
+            "text": "📋 View Task Log",
+            "onClick": {"openLink": {"url": log_url}},
+        })
+
+    dag_url = _build_airflow_dag_url(info)
+    if dag_url:
+        buttons.append({
+            "text": "🔗 View DAG",
+            "onClick": {"openLink": {"url": dag_url}},
+        })
+
+    if buttons:
+        widgets.append({"buttonList": {"buttons": buttons}})
+
+    if not widgets:
+        return None
+
+    return {
+        "header": "📊 Airflow Run Info",
+        "widgets": widgets,
+    }
 
 
 def _build_context_widget(context: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
@@ -335,15 +620,29 @@ def build_run_card(
                 widgets.append(link_widget)
             links_rendered.add(check_idx)
 
+    # Build sections
+    sections: List[Dict[str, Any]] = []
+
+    # Add critical "Extra in Target" section first if applicable
+    extra_section = _build_extra_in_target_section(result.checks)
+    if extra_section:
+        sections.append(extra_section)
+
+    # Add failed validations section
+    sections.append({"header": "Failed Validations", "widgets": widgets})
+
+    # Add Airflow info section at the end (if available)
+    airflow_section = _build_airflow_section()
+    if airflow_section:
+        sections.append(airflow_section)
+
     return {
         "cardsV2": [
             {
                 "cardId": "run_summary",
                 "card": {
                     "header": header,
-                    "sections": [
-                        {"header": "Failed Validations", "widgets": widgets}
-                    ],
+                    "sections": sections,
                 },
             }
         ]

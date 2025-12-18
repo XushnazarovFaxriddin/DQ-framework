@@ -1,4 +1,4 @@
-"""Table statistics collection check."""
+"""Table statistics collection check with multi-engine support."""
 
 from __future__ import annotations
 
@@ -21,6 +21,23 @@ _VALID_GRANULARITIES = {"day", "week", "month", "year"}
 
 @register_check("table_stats")
 class TableStatsCheck(BaseCheck):
+    """
+    Collect time-series statistics for a table and persist to BigQuery.
+
+    Supports multiple database engines:
+    - BigQuery
+    - PostgreSQL
+    - Oracle
+    - MS SQL Server
+
+    Configuration:
+    - time_column: column to bucket by
+    - time_granularity: day, week, month, or year
+    - metrics: list of {method, column, name} to calculate
+    - on: source, target, or both
+    - stats_storage: {table, project} for BigQuery destination
+    """
+
     def run(self) -> CheckResult:
         metrics = self.check_cfg.metrics or []
         storage_cfg = self._resolve_storage_cfg()
@@ -44,24 +61,39 @@ class TableStatsCheck(BaseCheck):
             raise ValueError(f"Unsupported time_granularity: {granularity}")
 
         rows: List[Dict[str, Any]] = []
+        errors: List[str] = []
         sides = self._resolve_sides(self.check_cfg.on)
+
         for side in sides:
             connector = self.source if side == "source" else self.target
             query_cfg = self.table_cfg.source if side == "source" else self.table_cfg.target
             base_sql = connector.render_select_sql(query_cfg)
             time_column = self._resolve_time_column(side)
+
             if not time_column:
                 log(
                     "table_stats.missing_time_column",
                     table=self.table_cfg.name,
                     side=side,
                 )
+                errors.append(f"Missing time_column for {side}")
+                continue
+
+            engine = connector.engine_name
+            if not self._supports_engine(engine):
+                log(
+                    "table_stats.unsupported_engine",
+                    table=self.table_cfg.name,
+                    side=side,
+                    engine=engine,
+                )
+                errors.append(f"Unsupported engine: {engine}")
                 continue
 
             for metric in metrics:
                 try:
                     query = self._build_metric_query(
-                        connector.engine_name,
+                        engine,
                         base_sql,
                         time_column,
                         granularity,
@@ -77,7 +109,9 @@ class TableStatsCheck(BaseCheck):
                         metric=metric.method,
                         error=str(exc),
                     )
+                    errors.append(f"{side}/{metric.method}: {str(exc)}")
                     continue
+
                 rows.extend(
                     self._rows_from_df(
                         df,
@@ -93,7 +127,10 @@ class TableStatsCheck(BaseCheck):
                 table=self.table_cfg.name,
                 check_type="table_stats",
                 status="SKIP",
-                details={"reason": "no_rows_collected"},
+                details={
+                    "reason": "no_rows_collected",
+                    "errors": errors if errors else None,
+                },
             )
 
         try:
@@ -120,9 +157,15 @@ class TableStatsCheck(BaseCheck):
             details={
                 "stats_table": storage_cfg.table,
                 "rows": len(rows),
+                "sides": list(sides),
+                "metrics": [m.method for m in metrics],
+                "granularity": granularity,
                 "run_timestamp": datetime.utcnow().isoformat() + "Z",
             },
         )
+
+    def _supports_engine(self, engine_name: str) -> bool:
+        return engine_name in {"bigquery", "postgres", "oracle", "mssql"}
 
     def _resolve_sides(self, on_value: Optional[str]) -> Sequence[str]:
         if not on_value or on_value.lower() == "source":
@@ -175,6 +218,20 @@ class TableStatsCheck(BaseCheck):
         bucket_expr = self._bucket_start(engine_name, time_column, granularity)
         bucket_end = self._bucket_end(engine_name, bucket_expr, granularity)
         metric_expr = self._metric_sql(metric)
+
+        # MSSQL requires special handling for GROUP BY with expressions
+        if engine_name == "mssql":
+            return f"""
+WITH base AS ({base_sql})
+SELECT
+  {bucket_expr} AS period_start,
+  {bucket_end} AS period_end,
+  {metric_expr} AS metric_value,
+  COUNT(*) AS row_count
+FROM base
+GROUP BY {bucket_expr}, {bucket_end}
+ORDER BY {bucket_expr}
+"""
         return f"""
 WITH base AS ({base_sql})
 SELECT
@@ -201,6 +258,15 @@ ORDER BY {bucket_expr}
                 "year": "YYYY",
             }.get(granularity, "MM")
             return f"TRUNC({time_column}, '{oracle_unit}')"
+        if engine_name == "mssql":
+            if granularity == "day":
+                return f"CAST(CAST({time_column} AS DATE) AS DATETIME)"
+            if granularity == "week":
+                return f"DATEADD(WEEK, DATEDIFF(WEEK, 0, {time_column}), 0)"
+            if granularity == "month":
+                return f"DATEFROMPARTS(YEAR({time_column}), MONTH({time_column}), 1)"
+            if granularity == "year":
+                return f"DATEFROMPARTS(YEAR({time_column}), 1, 1)"
         raise ValueError(f"Unsupported engine for table_stats: {engine_name}")
 
     def _bucket_end(self, engine_name: str, bucket_expr: str, granularity: str) -> str:
@@ -212,7 +278,11 @@ ORDER BY {bucket_expr}
             if granularity == "week":
                 return f"({bucket_expr} + INTERVAL '7' DAY)"
             unit = {"day": "DAY", "month": "MONTH", "year": "YEAR"}.get(granularity, "MONTH")
-            return f"({bucket_expr} + INTERVAL '1 {unit}')"
+            return f"({bucket_expr} + INTERVAL '1' {unit})"
+        if engine_name == "mssql":
+            interval_map = {"day": "DAY", "week": "WEEK", "month": "MONTH", "year": "YEAR"}
+            interval = interval_map.get(granularity, "MONTH")
+            return f"DATEADD({interval}, 1, {bucket_expr})"
         raise ValueError(f"Unsupported engine for bucket end: {engine_name}")
 
     def _rows_from_df(
@@ -224,6 +294,8 @@ ORDER BY {bucket_expr}
         granularity: str,
     ) -> List[Dict[str, Any]]:
         rows: List[Dict[str, Any]] = []
+        config_file = self.vars_map.get("config_file", "")
+
         for _, row in df.iterrows():
             period_start = self._to_datetime(row.get("period_start"))
             period_end = self._to_datetime(row.get("period_end"))
@@ -238,6 +310,7 @@ ORDER BY {bucket_expr}
             rows.append(
                 {
                     "run_id": os.getenv("DQF_RUN_ID"),
+                    "config_file": config_file,
                     "env": self.vars_map.get("env"),
                     "table_name": self.table_cfg.name,
                     "side": side,

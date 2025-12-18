@@ -9,6 +9,13 @@ How it works (`src/checks/table_stats.py`):
 - Compute each metric in `metrics` along with a bucket row count.
 - Normalize the result into the monitoring schema and insert rows into the configured stats storage backend (`bigquery` by default).
 
+Supported Engines
+
+- **BigQuery**: `TIMESTAMP_TRUNC`, `TIMESTAMP_ADD`
+- **PostgreSQL**: `DATE_TRUNC`, interval arithmetic
+- **Oracle**: `TRUNC`, interval arithmetic
+- **MS SQL Server**: `DATEFROMPARTS`, `DATEADD`, `DATEDIFF`
+
 Configuration
 
 - `type: table_stats`
@@ -61,6 +68,35 @@ tables:
           table: cert-shore-295415.dqf_monitoring.dqf_table_stats
 ```
 
+MS SQL Server Example
+
+```yaml
+connections:
+  source_env_var: MSSQL_CONN_STR
+  target_env_var: BQ_CONN_STR
+  source_type: mssql
+  target_type: bigquery
+
+tables:
+  - name: orders_stats
+    source:
+      table: dbo.orders
+    target:
+      table: project.dataset.orders
+    checks:
+      - type: table_stats
+        on: both
+        time_column_source: created_date
+        time_column_target: created_at
+        time_granularity: month
+        metrics:
+          - method: count
+          - method: sum
+            column: total_amount
+        stats_storage:
+          table: project.dataset.dqf_table_stats
+```
+
 Monitoring table
 
 Create the destination table before running this check (see `scripts/bq_tables.sql`, section `dqf_table_stats`). Replace `cert-shore-295415` with your project/dataset if needed.
@@ -68,7 +104,17 @@ Create the destination table before running this check (see `scripts/bq_tables.s
 Result details
 
 - `status`: `RECORDED` when rows were inserted, `SKIP` when no storage is configured or no metrics produced rows, `FAIL` if persistence failed.
-- `details`: `{ stats_table: <table>, rows: <int>, run_timestamp: <iso> }`
+- `details`:
+  ```json
+  {
+    "stats_table": "<table>",
+    "rows": "<int>",
+    "sides": ["source", "target"],
+    "metrics": ["count", "sum"],
+    "granularity": "month",
+    "run_timestamp": "<iso>"
+  }
+  ```
 
 Stats comparison
 

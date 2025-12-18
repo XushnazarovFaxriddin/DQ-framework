@@ -22,12 +22,46 @@ Framework
 - `DQF_STATS_TABLE`: fallback BigQuery table for the `table_stats` check (`cert-shore-295415.dqf_monitoring.dqf_table_stats` by default).
 - `DQF_STATS_PROJECT`: optional project override when the stats table is unqualified.
 
+Mismatch IDs Detection
+
+- `DQF_MISMATCH_IDS_ENABLED`: enable mismatch IDs detection (`true` or `false`, default: `true`).
+- `DQF_MISMATCH_IDS_CHUNK_SIZE`: chunk size for ID comparison (default: `500000`). Optimized for 10M+ rows.
+- `DQF_MISMATCH_IDS_MAX_IDS`: maximum IDs to include in CSV export (default: `100000`).
+- `DQF_MISMATCH_IDS_PARALLEL_CHUNKS`: number of parallel chunks for processing (default: `4`).
+
 Alerts
 
 - `GCHAT_DQ_WEBHOOK`: webhook for Google Chat backend (if not provided in route).
 - `DQ_EMAILS`: default recipient list for email backend when `to:` omitted.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASS`, `SMTP_STARTTLS`.
+- `DQF_EMAIL_BACKEND`: email backend to use (`smtp` or `sendgrid`, default: `smtp`).
 - `DQF_EMAIL_SUBJECT`: subject prefix for email.
+
+SMTP Configuration
+
+- `SMTP_HOST`: SMTP server hostname (required for SMTP backend).
+- `SMTP_PORT`: SMTP server port (default: `587`).
+- `SMTP_FROM`: sender email address (default: `dqf@localhost`).
+- `SMTP_USER`: SMTP username for authentication.
+- `SMTP_PASS`: SMTP password for authentication.
+- `SMTP_STARTTLS`: enable STARTTLS (default: `true`).
+- `SMTP_SSL`: use SSL connection instead of STARTTLS (default: `false`).
+
+SendGrid Configuration
+
+- `SENDGRID_API_KEY`: SendGrid API key (required for SendGrid backend).
+- `SENDGRID_FROM`: sender email address for SendGrid (falls back to `SMTP_FROM`).
+
+Airflow Integration
+
+Set these environment variables in your Airflow DAG to enable automatic linking in alerts:
+
+- `AIRFLOW_DAG_ID`: DAG identifier.
+- `AIRFLOW_DAG_RUN_ID`: current DAG run identifier.
+- `AIRFLOW_TASK_ID`: task identifier.
+- `AIRFLOW_EXECUTION_DATE`: execution date/time.
+- `AIRFLOW_LOG_URL`: direct link to task log (optional, constructed automatically if base URL provided).
+- `AIRFLOW_DAG_URL`: direct link to DAG in Airflow UI (optional).
+- `AIRFLOW_BASE_URL`: base URL of Airflow UI for constructing links (e.g., `https://airflow.example.com`).
 
 Cloud/Connectors
 
