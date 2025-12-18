@@ -13,6 +13,11 @@ from src.render.gchat_cards import (
     context_lines,
     _has_extra_in_target,
     _get_extra_in_target_count,
+    _get_diff_percentage_for_check,
+    _format_percentage,
+    _get_airflow_info,
+    _build_airflow_log_url,
+    _build_airflow_dag_url,
 )
 from src.render.mismatch_links import csv_links_for_check
 from src.runtime.registry import register_alert
@@ -79,11 +84,38 @@ def send_gchat(
             if check.status == "FAIL":
                 severity_note = f" [{check.severity or 'WARNING'}]"
             line = f"{check.table}/{check.check_type}: {check.status}{severity_note}"
+
+            # Add diff percentage for failed checks
+            if check.status == "FAIL":
+                diff_pct = _get_diff_percentage_for_check(check)
+                if diff_pct is not None and diff_pct > 0:
+                    line += f" (diff: {_format_percentage(diff_pct)})"
+
             csv_links = csv_links_for_check(check)
             if csv_links:
                 preview = "; ".join(csv_links[:2])
                 line += f" | Mismatch CSVs: {preview}"
             lines.append(line)
+
+        # Add Airflow info at the end
+        airflow_info = _get_airflow_info()
+        if any(airflow_info.values()):
+            lines.append("")
+            lines.append("📊 Airflow Run Info:")
+            if airflow_info.get("dag_id"):
+                lines.append(f"  DAG: {airflow_info['dag_id']}")
+            if airflow_info.get("task_id"):
+                lines.append(f"  Task: {airflow_info['task_id']}")
+            if airflow_info.get("dag_run_id"):
+                lines.append(f"  Run ID: {airflow_info['dag_run_id']}")
+
+            log_url = _build_airflow_log_url(airflow_info)
+            dag_url = _build_airflow_dag_url(airflow_info)
+            if log_url:
+                lines.append(f"  📋 Task Log: {log_url}")
+            if dag_url:
+                lines.append(f"  🔗 DAG: {dag_url}")
+
         payload = {"text": title + "\n" + "\n".join(lines)}
 
     try:
