@@ -1,24 +1,19 @@
 # Row Count
 
-Purpose: compare row counts between source and target selections and, when they differ, surface where the gap sits via range sampling, ID detection, and CSV export.
+Purpose: compare row counts between source and target selections and, when they differ, detect specific mismatched IDs and export to CSV.
 
 How it works (`src/checks/row_count.py`):
 
 - Renders base `SELECT` for source/target via connectors.
 - Wraps into `SELECT COUNT(*) FROM (<base>)` (with optional deterministic `ORDER BY`).
 - Compares integers for equality.
-- If counts differ and `mismatch_sampling` is configured, scans ID ranges (chunk or binary) to highlight where the delta lives and optionally exports a CSV.
 - If counts differ and `mismatch_ids` is enabled, detects specific IDs that are missing or extra in target.
 
 Config fields
 
 - `type: row_count`
-- `id_column` (or `id_column_source` / `id_column_target`): numeric ID used for range sampling and mismatch ID detection.
-- `mismatch_sampling` (optional): drive range-based diagnosis when counts diverge.
-  - `mode: chunk | binary`
-  - `chunk_size`: slice size for chunk mode
-  - `max_scan_chunks`, `max_ranges`: limits to bound work
-  - `max_depth`: recursion depth for binary mode
+- `id_column` (or `id_column_source` / `id_column_target`): ID column used for mismatch detection.
+  - Fallback chain: `id_column_source/target` → `id_column` → `column/col`
 - Ordering options (optional):
   - `order_by: [ canonical cols ]` mapped via `table.column_map` to each side
   - `order_by_source: [ raw exprs ]` overrides for source
@@ -37,47 +32,35 @@ Configuration via `results_storage.mismatch_ids`:
 - `max_ids`: maximum IDs to export (default from `DQF_MISMATCH_IDS_MAX_IDS`)
 - `separate_files`: create separate CSV files for missing vs extra IDs
 
+The detection algorithm automatically chooses between:
+- **Chunked mode**: Sequential chunk comparison, best for small to medium ID ranges
+- **Binary mode**: Recursive binary search, best for large sparse mismatches (>10M IDs)
+
 CSV files include dashboard-ready metadata:
 - `id`: the mismatched ID value
 - `mismatch_type`: `missing_in_target` or `extra_in_target`
 - `table_name`, `check_name`, `config_file`
 - `detection_timestamp` (EST timezone)
+- `is_critical`: true for extra_in_target records
 
 Examples
 
 ```yaml
-# Simple count
+# Simple count (no mismatch ID export)
 - type: row_count
 
-# Deterministic ordering
-- type: row_count
-  order_by: [id]
-
-# Range sampling with chunk mode (best for wide IDs)
+# With mismatch IDs detection
 - type: row_count
   id_column: RECORD_ID
-  mismatch_sampling:
-    mode: chunk
-    chunk_size: 200000
-    max_scan_chunks: 50
 
-# Binary sampling (recursively narrows hotspots)
+# Different ID columns on source/target
 - type: row_count
   id_column_source: RECORD_ID
   id_column_target: record_id
-  mismatch_sampling:
-    mode: binary
-    max_depth: 6
-    max_scan_chunks: 40
 
-# With mismatch IDs detection for specific ID export
+# Using column as ID fallback
 - type: row_count
-  id_column_source: RECORD_ID
-  id_column_target: record_id
-  mismatch_sampling:
-    mode: binary
-    max_depth: 8
-    chunk_size: 500000
+  column: order_id
 ```
 
 Results Storage Configuration
@@ -98,21 +81,22 @@ Details output
 details: {
   source_count: <int>,
   target_count: <int>,
-  config_summary: { id, sample_mode, chunk_size? },
-  mismatch_ranges: [ {range_start, range_end, source_count, target_count, diff}, ... ],
-  mismatch_csv_uri: <uri>,
-  mismatch_csv_uris: [<uri>, ...],
+  config_summary: { id },
   # Mismatch IDs fields (when enabled):
-  missing_in_target_count: <int>,
-  extra_in_target_count: <int>,
+  mismatch_ids_summary: {
+    source_count, target_count,
+    missing_in_target_count, extra_in_target_count,
+    scan_method, chunks_scanned, processing_time_ms
+  },
   has_extra_in_target: <bool>,  # Critical flag for alerts
+  extra_in_target_count: <int>,
   mismatch_ids_csv_uri: <uri>,
-  extra_in_target_csv_uri: <uri>  # Separate file when separate_files=true
+  extra_in_target_csv_uri: <uri>  # When separate_files=true
 }
 ```
 
 Status
 
 - PASS if counts equal; otherwise FAIL.
-- When mismatch sampling runs, alerts show only summary stats and a CSV link (no huge JSON dumps).
 - When `extra_in_target` is detected, alerts show a critical warning section.
+- Difference percentage is displayed in alerts for failed checks.
